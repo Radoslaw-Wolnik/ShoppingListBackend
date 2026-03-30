@@ -1,0 +1,17 @@
+# build
+**/bin/
+**/obj/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+
+# docker / secrets
+.env
+.env.*
+!.env.example
+
+# local db / logs
+postgres_data/
+*.log
