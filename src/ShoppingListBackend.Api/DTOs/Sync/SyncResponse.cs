@@ -1,4 +1,4 @@
-using ShoppingListBackend.Api.DTOs.ShoppingList;
+using ShoppingListBackend.Api.DTOs.ShoppingList.Response;
 
 namespace ShoppingListBackend.Api.DTOs.Sync;
 

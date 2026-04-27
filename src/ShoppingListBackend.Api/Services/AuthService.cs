@@ -1,7 +1,10 @@
+using System.Security.Cryptography;
+using System.Text;
+using ShoppingListBackend.Api.Data;
 using ShoppingListBackend.Api.DTOs;
+using ShoppingListBackend.Api.DTOs.Device;
 using ShoppingListBackend.Api.Models;
-using ShoppingListBackend.Api.Repositories.Interfaces;
-using ShoppingListBackend.Api.Services;
+using ShoppingListBackend.Api.Repositories;
 
 namespace ShoppingListBackend.Api.Services;
 

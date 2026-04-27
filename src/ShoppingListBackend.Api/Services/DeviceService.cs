@@ -1,3 +1,9 @@
+using Microsoft.EntityFrameworkCore;
+using ShoppingListBackend.Api.Data;
+using ShoppingListBackend.Api.DTOs;
+using ShoppingListBackend.Api.Models;
+using ShoppingListBackend.Api.Repositories;
+
 namespace ShoppingListBackend.Api.Services;
 
 public class DeviceService(IDeviceRepository deviceRepo, AppDbContext context) : IDeviceService
@@ -51,7 +57,7 @@ public class DeviceService(IDeviceRepository deviceRepo, AppDbContext context) :
     public async Task RemoveFriendAsync(Guid deviceId, Guid friendId)
     {
         // Optional: verify friendship exists before removing
-        await _deviceRepo.RemoveFriendAsync(deviceId, friendId);
+        _deviceRepo.RemoveFriend(deviceId, friendId);
         await _context.SaveChangesAsync();
     }
 

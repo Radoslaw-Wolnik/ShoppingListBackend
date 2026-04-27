@@ -1,4 +1,4 @@
-using ShoppingListBackend.Api.DTOs;
+using ShoppingListBackend.Api.DTOs.Device;
 using ShoppingListBackend.Api.Models;
 
 namespace ShoppingListBackend.Api.Services;

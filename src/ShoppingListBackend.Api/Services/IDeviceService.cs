@@ -1,3 +1,5 @@
+using ShoppingListBackend.Api.Models;
+
 namespace ShoppingListBackend.Api.Services;
 
 public interface IDeviceService
@@ -8,4 +10,5 @@ public interface IDeviceService
     Task AddFriendAsync(Guid deviceId, Guid friendId);
     Task RemoveFriendAsync(Guid deviceId, Guid friendId);
     Task DeleteDeviceAsync(Guid deviceId);
+    Task<IEnumerable<Device>> GetFriendsAsync(Guid deviceId);
 }

@@ -1,3 +1,7 @@
+using Microsoft.EntityFrameworkCore;
+using ShoppingListBackend.Api.Data;
+using ShoppingListBackend.Api.Models;
+
 namespace ShoppingListBackend.Api.Repositories;
 
 // Repositories/ShoppingListRepository.cs

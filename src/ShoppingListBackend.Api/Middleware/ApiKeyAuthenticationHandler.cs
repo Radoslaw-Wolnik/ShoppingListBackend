@@ -1,4 +1,3 @@
-// Middleware/ApiKeyAuthenticationHandler.cs
 using System.Security.Claims;
 using System.Text.Encodings.Web;
 using Microsoft.AspNetCore.Authentication;
@@ -17,9 +16,8 @@ public class ApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationS
         IOptionsMonitor<AuthenticationSchemeOptions> options,
         ILoggerFactory logger,
         UrlEncoder encoder,
-        ISystemClock clock,
         IAuthService authService)
-        : base(options, logger, encoder, clock)
+        : base(options, logger, encoder)
     {
         _authService = authService;
     }
