@@ -1,9 +1,9 @@
 using FluentValidation;
-using ShoppingListBackend.Api.DTOs.ShoppingList;
+using ShoppingListBackend.Api.DTOs.ShoppingList.Request;
 
 namespace ShoppingListBackend.Api.Validators.ShoppingList;
 
-public class UpdateCategoryRequestValidator : AbstractValidator<UpdateCategoryRequest>
+public class UpdateCategoryRequestValidator : AbstractValidator<UpdateCategoryNameRequest>
 {
     public UpdateCategoryRequestValidator()
     {

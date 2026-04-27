@@ -1,5 +1,5 @@
 using FluentValidation;
-using ShoppingListBackend.Api.DTOs.ShoppingList;
+using ShoppingListBackend.Api.DTOs.ShoppingList.Request;
 
 namespace ShoppingListBackend.Api.Validators.ShoppingList;
 
