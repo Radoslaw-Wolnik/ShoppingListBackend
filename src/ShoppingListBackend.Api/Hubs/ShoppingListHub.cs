@@ -1,15 +1,36 @@
+using System.Security.Claims;
+using AutoMapper;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using ShoppingListBackend.Api.DTOs.Common;
+using ShoppingListBackend.Api.DTOs.ShoppingList.Response;
+using ShoppingListBackend.Api.Models;
+using ShoppingListBackend.Api.Services;
+using ShoppingListBackend.Api.Data;
+
 namespace ShoppingListBackend.Api.Hubs;
 
 [Authorize(AuthenticationSchemes = "ApiKey")]
 public class ShoppingListHub : Hub
 {
     private readonly IShoppingListService _shoppingListService;
-    private readonly IShoppingListReadRepository _readRepository;
+    private readonly IShoppingListReadService _readService;
+    private readonly IEditingTracker _editingTracker;
+    private readonly AppDbContext _dbContext;
+    private readonly IMapper _mapper;
 
-    public ShoppingListHub(IShoppingListService shoppingListService, IShoppingListReadRepository readRepository)
+    public ShoppingListHub(
+        IShoppingListService shoppingListService,
+        IShoppingListReadService readService,
+        IEditingTracker editingTracker,
+        AppDbContext dbContext,
+        IMapper mapper)
     {
         _shoppingListService = shoppingListService;
-        _readRepository = readRepository;
+        _readService = readService;
+        _editingTracker = editingTracker;
+        _dbContext = dbContext;
+        _mapper = mapper;
     }
 
     private Guid GetDeviceId()
@@ -20,30 +41,122 @@ public class ShoppingListHub : Hub
         return deviceId;
     }
 
+    private async Task<DeviceInfo> GetDeviceInfoAsync(Guid deviceId)
+    {
+        var device = await _dbContext.Devices.FindAsync(deviceId);
+        if (device == null) throw new HubException("Device not found");
+        return _mapper.Map<DeviceInfo>(device);
+    }
+
+    // --- Group management with presence ---
     public async Task JoinList(Guid listId)
     {
         var deviceId = GetDeviceId();
 
-        // Verify that the device has access to this list
-        var summaries = await _readRepository.GetSummariesForDeviceAsync(deviceId, CancellationToken.None);
+        // Verify access
+        var summaries = await _readService.GetSummariesForDeviceAsync(deviceId, CancellationToken.None);
         if (!summaries.Any(s => s.Id == listId))
             throw new HubException("You don't have access to this list");
 
         await Groups.AddToGroupAsync(Context.ConnectionId, $"list-{listId}");
+
+        // Presence tracking
+        var deviceInfo = await GetDeviceInfoAsync(deviceId);
+        _editingTracker.AddDevice(listId, deviceInfo, Context.ConnectionId);
+        var editors = _editingTracker.GetEditingDevices(listId);
+        await Clients.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", editors);
     }
 
     public async Task LeaveList(Guid listId)
     {
+        var deviceId = GetDeviceId();
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"list-{listId}");
+        _editingTracker.RemoveDevice(listId, deviceId);
+        var editors = _editingTracker.GetEditingDevices(listId);
+        await Clients.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", editors);
     }
 
-    // Optional: provide methods for real-time operations via hub (if you want to bypass HTTP)
-    // These methods will call the same service and the service will broadcast.
-    // But note: the service already broadcasts, so these are just thin wrappers.
+    public override async Task OnDisconnectedAsync(Exception? exception)
+    {
+        _editingTracker.RemoveConnection(Context.ConnectionId);
+        await base.OnDisconnectedAsync(exception);
+    }
+
+    // --- List operations ---
+    public async Task<ShoppingListDto> CreateList(string title)
+    {
+        var deviceId = GetDeviceId();
+        var list = await _shoppingListService.CreateListAsync(deviceId, title);
+        return _mapper.Map<ShoppingListDto>(list);
+    }
+
+    public async Task UpdateListTitle(Guid listId, string newTitle)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.UpdateListTitleAsync(listId, deviceId, newTitle);
+    }
+
+    public async Task DeleteList(Guid listId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.DeleteListAsync(listId, deviceId);
+    }
+
+    public async Task<ShoppingListDto> CopyList(Guid sourceId)
+    {
+        var deviceId = GetDeviceId();
+        var newList = await _shoppingListService.CopyListAsync(sourceId, deviceId);
+        return _mapper.Map<ShoppingListDto>(newList);
+    }
+
+    public async Task AddEditor(Guid listId, Guid newEditorId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.AddEditorAsync(listId, deviceId, newEditorId);
+    }
+
+    public async Task RemoveEditor(Guid listId, Guid editorId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.RemoveEditorAsync(listId, deviceId, editorId);
+    }
+
+    // --- Category operations ---
+    public async Task AddCategory(Guid listId, string categoryName)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.AddCategoryAsync(listId, deviceId, categoryName);
+    }
+
+    public async Task UpdateCategory(Guid categoryId, string newName)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.UpdateCategoryNameAsync(categoryId, deviceId, newName);
+    }
+
+    public async Task DeleteCategory(Guid categoryId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.DeleteCategoryAsync(categoryId, deviceId);
+    }
+
+    public async Task ReorderCategory(Guid categoryId, int newPosition)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.ReorderCategoryAsync(categoryId, deviceId, newPosition);
+    }
+
+    // --- Item operations ---
     public async Task AddItem(Guid categoryId, string description)
     {
         var deviceId = GetDeviceId();
         await _shoppingListService.AddItemAsync(categoryId, deviceId, description);
+    }
+
+    public async Task UpdateItemDescription(Guid itemId, string newDescription)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.UpdateItemDescriptionAsync(itemId, deviceId, newDescription);
     }
 
     public async Task ToggleItem(Guid itemId, bool isChecked)
@@ -52,5 +165,27 @@ public class ShoppingListHub : Hub
         await _shoppingListService.ToggleItemCheckedAsync(itemId, deviceId, isChecked);
     }
 
-    // Add other methods as needed (ReorderItem, DeleteItem, etc.)
+    public async Task DeleteItem(Guid itemId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.DeleteItemAsync(itemId, deviceId);
+    }
+
+    public async Task ReorderItem(Guid categoryId, Guid itemId, int newPosition)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.ReorderItemAsync(categoryId, deviceId, itemId, newPosition);
+    }
+
+    public async Task MoveItem(Guid itemId, Guid newCategoryId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.MoveItemToCategoryAsync(itemId, deviceId, newCategoryId);
+    }
+
+    public async Task ResetCheckedItems(Guid listId)
+    {
+        var deviceId = GetDeviceId();
+        await _shoppingListService.ResetCheckedItemsAsync(listId, deviceId);
+    }
 }
