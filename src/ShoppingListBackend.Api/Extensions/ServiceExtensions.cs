@@ -1,4 +1,4 @@
-using ShoppingListBackend.Api.Repositories.Interfaces;
+using ShoppingListBackend.Api.Repositories;
 using ShoppingListBackend.Api.Services;
 
 namespace ShoppingListBackend.Api.Extensions;
@@ -16,7 +16,9 @@ public static class ServiceExtensions
     {
         services.AddScoped<IShoppingListService, ShoppingListService>();
         services.AddScoped<IAuthService, AuthService>();
-        services.AddSingleton<IHashService, BcryptHashService>(); // or scoped
+        services.AddScoped<IDeviceService, DeviceService>();
+        services.AddScoped<IShoppingListReadService, ShoppingListReadService>();
+        services.AddSingleton<IHashService, BcryptHashService>();
         return services;
     }
 }
