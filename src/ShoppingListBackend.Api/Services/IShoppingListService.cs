@@ -1,3 +1,5 @@
+using ShoppingListBackend.Api.Models;
+
 namespace ShoppingListBackend.Api.Services;
 
 public interface IShoppingListService

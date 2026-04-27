@@ -1,7 +1,8 @@
 using AutoMapper;
 using ShoppingListBackend.Api.DTOs.Common;
 using ShoppingListBackend.Api.DTOs.Device;
-using ShoppingListBackend.Api.DTOs.ShoppingList;
+using ShoppingListBackend.Api.DTOs.ShoppingList.Response;
+using ShoppingListBackend.Api.DTOs.ShoppingList.Request;
 using ShoppingListBackend.Api.Models;
 
 namespace ShoppingListBackend.Api.Mappers;
