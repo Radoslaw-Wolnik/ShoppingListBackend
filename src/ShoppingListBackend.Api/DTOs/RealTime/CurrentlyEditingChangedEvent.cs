@@ -5,5 +5,5 @@ namespace ShoppingListBackend.Api.DTOs.RealTime;
 public class CurrentlyEditingChangedEvent : ShoppingListEvent
 {
     public CurrentlyEditingChangedEvent() => EventType = "CurrentlyEditingChanged";
-    public List<DeviceInfo> EditingDevices { get; set; }
+    public List<DeviceInfo> EditingDevices { get; set; } = [];
 }

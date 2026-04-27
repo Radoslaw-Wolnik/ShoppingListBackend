@@ -1,8 +1,7 @@
 namespace ShoppingListBackend.Api.DTOs.ShoppingList.Request;
 
-public class AddItemRequest
+public class UpdateItemDescriptionRequest
 {
-    // public guid CategoryId
+    // public guid ItemId
     public string Description { get; set; } = null!;
-    public int Position { get; set; }
 }

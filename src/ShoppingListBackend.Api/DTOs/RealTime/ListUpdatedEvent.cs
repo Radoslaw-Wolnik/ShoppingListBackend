@@ -5,5 +5,5 @@ namespace ShoppingListBackend.Api.DTOs.RealTime;
 public class ListUpdatedEvent : ShoppingListEvent
 {
     public ListUpdatedEvent() => EventType = "ListUpdated";
-    public string Title { get; set; }
+    public string Title { get; set; } = null!;
 }
