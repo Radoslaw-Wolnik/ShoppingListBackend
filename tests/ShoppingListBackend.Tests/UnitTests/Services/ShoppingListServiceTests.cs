@@ -423,6 +423,10 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
         sourceCategory.Items.Should().NotContain(item);
         destCategory.Items.Should().Contain(item);
         list.UpdatedAt.Should().NotBeNull();
+        VerifyBroadcast<ItemMovedEvent>($"list-{listId}", e =>
+            e.ItemId == item.Id &&
+            e.FromCategoryId == sourceCategory.Id &&
+            e.ToCategoryId == destCategory.Id);
     }
 
     [Fact]

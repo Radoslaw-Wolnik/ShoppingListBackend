@@ -37,6 +37,15 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task CreateList_WithBlankTitle_ReturnsBadRequest()
+    {
+        var (client, _) = await CreateAuthenticatedClient();
+        var response = await client.PostAsJsonAsync("/api/shopping-lists", new CreateListRequest { Title = "" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task GetListsForUser_ReturnsEmpty_WhenNoLists()
     {
         var (client, _) = await CreateAuthenticatedClient();

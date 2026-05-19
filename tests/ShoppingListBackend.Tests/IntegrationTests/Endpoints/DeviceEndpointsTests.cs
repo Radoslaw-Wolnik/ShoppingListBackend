@@ -63,6 +63,15 @@ public class DeviceEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task UpdateColour_WithInvalidHex_ReturnsBadRequest()
+    {
+        var (client, _) = await CreateAuthenticatedClient();
+        var response = await client.PutAsJsonAsync("/api/devices/me/colour", new UpdateColourRequest { Colour = "blue" });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task AddFriend_And_ListFriends_Work()
     {
         var (client1, device1) = await CreateAuthenticatedClient();
