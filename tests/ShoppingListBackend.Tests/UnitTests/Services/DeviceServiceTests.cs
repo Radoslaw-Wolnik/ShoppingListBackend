@@ -87,7 +87,7 @@ public class DeviceServiceTests
         var friend = TestData.CreateDevice(friendId);
         _deviceRepoMock.Setup(x => x.GetByIdAsync(deviceId, default)).ReturnsAsync(device);
         _deviceRepoMock.Setup(x => x.GetByIdAsync(friendId, default)).ReturnsAsync(friend);
-        _deviceRepoMock.Setup(x => x.GetFriends(deviceId)).Returns(Enumerable.Empty<Device>().AsQueryable());
+        _deviceRepoMock.Setup(x => x.AreFriendsAsync(deviceId, friendId, default)).ReturnsAsync(false);
         _contextMock.Setup(x => x.SaveChangesAsync(default)).ReturnsAsync(1);
 
         await _deviceService.AddFriendAsync(deviceId, friendId);
@@ -105,7 +105,7 @@ public class DeviceServiceTests
         var friend = TestData.CreateDevice(friendId);
         _deviceRepoMock.Setup(x => x.GetByIdAsync(deviceId, default)).ReturnsAsync(device);
         _deviceRepoMock.Setup(x => x.GetByIdAsync(friendId, default)).ReturnsAsync(friend);
-        _deviceRepoMock.Setup(x => x.GetFriends(deviceId)).Returns(new[] { friend }.AsQueryable());
+        _deviceRepoMock.Setup(x => x.AreFriendsAsync(deviceId, friendId, default)).ReturnsAsync(true);
 
         await _deviceService.AddFriendAsync(deviceId, friendId);
 
@@ -160,7 +160,7 @@ public class DeviceServiceTests
     {
         var deviceId = Guid.NewGuid();
         var friends = new List<Device> { TestData.CreateDevice(), TestData.CreateDevice() };
-        _deviceRepoMock.Setup(x => x.GetFriends(deviceId)).Returns(friends.AsQueryable());
+        _deviceRepoMock.Setup(x => x.GetFriendsAsync(deviceId, default)).ReturnsAsync(friends);
 
         var result = await _deviceService.GetFriendsAsync(deviceId);
         result.Should().BeEquivalentTo(friends);

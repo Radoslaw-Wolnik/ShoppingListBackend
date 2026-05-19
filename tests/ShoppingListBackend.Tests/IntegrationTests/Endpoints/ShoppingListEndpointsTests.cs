@@ -31,9 +31,9 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var request = new CreateListRequest { Title = "My List" };
         var response = await client.PostAsJsonAsync("/api/shopping-lists", request);
-        var result = await response.Content.ReadFromJsonAsync<dynamic>();
         response.StatusCode.Should().Be(HttpStatusCode.Created);
-        ((Guid)result!.Id).Should().NotBeEmpty();
+        var listId = await response.ReadCreatedIdAsync();
+        listId.Should().NotBeEmpty();
     }
 
     [Fact]
@@ -52,8 +52,7 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, device) = await CreateAuthenticatedClient();
         var createRequest = new CreateListRequest { Title = "My List" };
         var createResponse = await client.PostAsJsonAsync("/api/shopping-lists", createRequest);
-        var createResult = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)createResult!.Id;
+        var listId = await createResponse.ReadCreatedIdAsync();
 
         var getResponse = await client.GetAsync("/api/shopping-lists");
         var headers = await getResponse.Content.ReadFromJsonAsync<DeviceShoppingListHeader[]>();
@@ -67,8 +66,7 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, device) = await CreateAuthenticatedClient();
         var createRequest = new CreateListRequest { Title = "My List" };
         var createResponse = await client.PostAsJsonAsync("/api/shopping-lists", createRequest);
-        var createResult = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)createResult!.Id;
+        var listId = await createResponse.ReadCreatedIdAsync();
 
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
         var fullList = await getResponse.Content.ReadFromJsonAsync<ShoppingListDto>();
@@ -85,8 +83,7 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createRequest = new CreateListRequest { Title = "Old Title" };
         var createResponse = await client.PostAsJsonAsync("/api/shopping-lists", createRequest);
-        var createResult = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)createResult!.Id;
+        var listId = await createResponse.ReadCreatedIdAsync();
 
         var updateRequest = new UpdateTitleRequest { Title = "New Title" };
         var updateResponse = await client.PutAsJsonAsync($"/api/shopping-lists/{listId}/title", updateRequest);
@@ -102,8 +99,7 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createRequest = new CreateListRequest { Title = "To Delete" };
         var createResponse = await client.PostAsJsonAsync("/api/shopping-lists", createRequest);
-        var createResult = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)createResult!.Id;
+        var listId = await createResponse.ReadCreatedIdAsync();
 
         var deleteResponse = await client.DeleteAsync($"/api/shopping-lists/{listId}");
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
@@ -117,8 +113,7 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "Produce" };
         var response = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
@@ -134,19 +129,18 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "Old Name" };
         var addResponse = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
-        var categoryId = addResponse.Headers.Location!.Segments.Last();
+        var categoryId = await addResponse.ReadCreatedIdAsync();
 
         var updateRequest = new UpdateCategoryNameRequest { Name = "New Name" };
         var updateResponse = await client.PutAsJsonAsync($"/api/shopping-lists/categories/{categoryId}", updateRequest);
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
         var fullList = await getResponse.Content.ReadFromJsonAsync<ShoppingListDto>();
         updateResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        fullList!.Categories.Should().ContainSingle(c => c.Id == Guid.Parse(categoryId) && c.Name == "New Name");
+        fullList!.Categories.Should().ContainSingle(c => c.Id == categoryId && c.Name == "New Name");
     }
 
     [Fact]
@@ -155,12 +149,11 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "To Delete" };
         var addResponse = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
-        var categoryId = addResponse.Headers.Location!.Segments.Last();
+        var categoryId = await addResponse.ReadCreatedIdAsync();
 
         var deleteResponse = await client.DeleteAsync($"/api/shopping-lists/categories/{categoryId}");
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
@@ -175,12 +168,11 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "Produce" };
         var addCategoryResponse = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
-        var categoryId = addCategoryResponse.Headers.Location!.Segments.Last();
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         var addItemRequest = new AddItemRequest { Description = "Apple" };
         var response = await client.PostAsJsonAsync($"/api/shopping-lists/categories/{categoryId}/items", addItemRequest);
@@ -196,23 +188,22 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "Produce" };
         var addCategoryResponse = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
-        var categoryId = addCategoryResponse.Headers.Location!.Segments.Last();
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         var addItemRequest = new AddItemRequest { Description = "Old Item" };
         var addItemResponse = await client.PostAsJsonAsync($"/api/shopping-lists/categories/{categoryId}/items", addItemRequest);
-        var itemId = addItemResponse.Headers.Location!.Segments.Last();
+        var itemId = await addItemResponse.ReadCreatedIdAsync();
 
         var updateRequest = new UpdateItemDescriptionRequest { Description = "New Item" };
         var updateResponse = await client.PutAsJsonAsync($"/api/shopping-lists/items/{itemId}", updateRequest);
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
         var fullList = await getResponse.Content.ReadFromJsonAsync<ShoppingListDto>();
         updateResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        fullList!.Categories[0].Items.Should().ContainSingle(i => i.Id == Guid.Parse(itemId) && i.Description == "New Item");
+        fullList!.Categories[0].Items.Should().ContainSingle(i => i.Id == itemId && i.Description == "New Item");
     }
 
     [Fact]
@@ -221,23 +212,22 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "Produce" };
         var addCategoryResponse = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
-        var categoryId = addCategoryResponse.Headers.Location!.Segments.Last();
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         var addItemRequest = new AddItemRequest { Description = "Apple" };
         var addItemResponse = await client.PostAsJsonAsync($"/api/shopping-lists/categories/{categoryId}/items", addItemRequest);
-        var itemId = addItemResponse.Headers.Location!.Segments.Last();
+        var itemId = await addItemResponse.ReadCreatedIdAsync();
 
         var toggleRequest = new ToggleItemRequest { IsChecked = true };
         var toggleResponse = await client.PutAsJsonAsync($"/api/shopping-lists/items/{itemId}/toggle", toggleRequest);
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
         var fullList = await getResponse.Content.ReadFromJsonAsync<ShoppingListDto>();
         toggleResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
-        fullList!.Categories[0].Items.Should().ContainSingle(i => i.Id == Guid.Parse(itemId) && i.IsChecked == true);
+        fullList!.Categories[0].Items.Should().ContainSingle(i => i.Id == itemId && i.IsChecked == true);
     }
 
     [Fact]
@@ -246,16 +236,15 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (client, _) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "List" };
         var createListResponse = await client.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var addCategoryRequest = new AddCategoryRequest { Name = "Produce" };
         var addCategoryResponse = await client.PostAsJsonAsync($"/api/shopping-lists/{listId}/categories", addCategoryRequest);
-        var categoryId = addCategoryResponse.Headers.Location!.Segments.Last();
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         var addItemRequest = new AddItemRequest { Description = "Apple" };
         var addItemResponse = await client.PostAsJsonAsync($"/api/shopping-lists/categories/{categoryId}/items", addItemRequest);
-        var itemId = addItemResponse.Headers.Location!.Segments.Last();
+        var itemId = await addItemResponse.ReadCreatedIdAsync();
 
         var deleteResponse = await client.DeleteAsync($"/api/shopping-lists/items/{itemId}");
         var getResponse = await client.GetAsync($"/api/shopping-lists/{listId}");
@@ -270,8 +259,7 @@ public class ShoppingListEndpointsTests : IntegrationTestBase
         var (ownerClient, ownerDevice) = await CreateAuthenticatedClient();
         var createListRequest = new CreateListRequest { Title = "Shared List" };
         var createListResponse = await ownerClient.PostAsJsonAsync("/api/shopping-lists", createListRequest);
-        var listResult = await createListResponse.Content.ReadFromJsonAsync<dynamic>();
-        var listId = (Guid)listResult!.Id;
+        var listId = await createListResponse.ReadCreatedIdAsync();
 
         var (editorClient, editorDevice) = await CreateAuthenticatedClient();
         var addEditorRequest = new AddEditorRequest { EditorDeviceId = editorDevice!.DeviceId };

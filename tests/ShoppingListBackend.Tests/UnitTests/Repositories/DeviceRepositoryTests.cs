@@ -92,9 +92,10 @@ public class DeviceRepositoryTests : TestBase
         _repository.AddFriend(device.Id, friend.Id);
         await _context.SaveChangesAsync();
 
-        var friendsQuery = _repository.GetFriends(device.Id);
-        var friends = await friendsQuery.ToListAsync();
+        var friends = await _repository.GetFriendsAsync(device.Id);
         friends.Should().ContainSingle(f => f.Id == friend.Id);
+        var areFriends = await _repository.AreFriendsAsync(device.Id, friend.Id);
+        areFriends.Should().BeTrue();
     }
 
     [Fact]
@@ -110,7 +111,9 @@ public class DeviceRepositoryTests : TestBase
         _repository.RemoveFriend(device.Id, friend.Id);
         await _context.SaveChangesAsync();
 
-        var friends = await _repository.GetFriends(device.Id).ToListAsync();
+        var friends = await _repository.GetFriendsAsync(device.Id);
         friends.Should().BeEmpty();
+        var areFriends = await _repository.AreFriendsAsync(device.Id, friend.Id);
+        areFriends.Should().BeFalse();
     }
 }

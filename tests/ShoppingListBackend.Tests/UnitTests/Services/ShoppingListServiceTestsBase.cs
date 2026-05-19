@@ -4,6 +4,7 @@ using Moq;
 using ShoppingListBackend.Api.DTOs.Common;
 using ShoppingListBackend.Api.DTOs.RealTime;
 using ShoppingListBackend.Api.Hubs;
+using ShoppingListBackend.Api.Mappers;
 using ShoppingListBackend.Api.Models;
 using ShoppingListBackend.Api.Repositories;
 using ShoppingListBackend.Api.Services;
@@ -15,26 +16,27 @@ public abstract class ShoppingListServiceTestsBase : TestBase
 {
     protected readonly Mock<IShoppingListRepository> _repoMock;
     protected readonly Mock<IHubContext<ShoppingListHub>> _hubContextMock;
-    protected readonly Mock<IMapper> _mapperMock;
+    protected readonly Mock<IHubClients> _clientsMock;
+    protected readonly Mock<IClientProxy> _clientProxyMock;
     protected readonly ShoppingListService _service;
 
     protected ShoppingListServiceTestsBase()
     {
         _repoMock = new Mock<IShoppingListRepository>();
         _hubContextMock = new Mock<IHubContext<ShoppingListHub>>();
-        _mapperMock = new Mock<IMapper>();
+        _clientsMock = new Mock<IHubClients>();
+        _clientProxyMock = new Mock<IClientProxy>();
+        var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
 
         _service = new ShoppingListService(
             _repoMock.Object,
             _context,
             _hubContextMock.Object,
-            _mapperMock.Object
+            mapper
         );
 
-        var clientsMock = new Mock<IHubClients>();
-        var clientProxyMock = new Mock<IClientProxy>();
-        clientsMock.Setup(c => c.Group(It.IsAny<string>())).Returns(clientProxyMock.Object);
-        _hubContextMock.Setup(h => h.Clients).Returns(clientsMock.Object);
+        _clientsMock.Setup(c => c.Group(It.IsAny<string>())).Returns(_clientProxyMock.Object);
+        _hubContextMock.Setup(h => h.Clients).Returns(_clientsMock.Object);
     }
 
     protected void SetupGetListWithCategoriesAndItems(Guid listId, ShoppingList list)
@@ -44,11 +46,15 @@ public abstract class ShoppingListServiceTestsBase : TestBase
 
     protected void VerifyBroadcast<T>(string expectedGroup, Func<T, bool> eventAssert) where T : ShoppingListEvent
     {
-        _hubContextMock.Verify(
-            h => h.Clients.Group(expectedGroup).SendAsync(
+        _clientsMock.Verify(c => c.Group(expectedGroup), Times.AtLeastOnce);
+        _clientProxyMock.Verify(
+            proxy => proxy.SendCoreAsync(
                 "ShoppingListEvent",
-                It.Is<T>(e => eventAssert(e)),
-                default),
+                It.Is<object?[]>(args => MatchesEvent(args, eventAssert)),
+                It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    private static bool MatchesEvent<T>(object?[] args, Func<T, bool> eventAssert) where T : ShoppingListEvent
+        => args.Length == 1 && args[0] is T typedEvent && eventAssert(typedEvent);
 }

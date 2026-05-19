@@ -27,12 +27,14 @@ public class ShoppingListReadServiceTests : TestBase
     {
         var owner = TestData.CreateDevice();
         var editor = TestData.CreateDevice();
+        var editableOwner = TestData.CreateDevice();
+        var otherOwner = TestData.CreateDevice();
         var listOwned = TestData.CreateShoppingList(ownerId: owner.Id, title: "Owner List");
-        var listEditable = TestData.CreateShoppingList(ownerId: Guid.NewGuid(), title: "Editable List");
+        var listEditable = TestData.CreateShoppingList(ownerId: editableOwner.Id, title: "Editable List");
         listEditable.Editors.Add(editor);
-        var otherList = TestData.CreateShoppingList(ownerId: Guid.NewGuid(), title: "Other");
+        var otherList = TestData.CreateShoppingList(ownerId: otherOwner.Id, title: "Other");
 
-        _context.Devices.AddRange(owner, editor);
+        _context.Devices.AddRange(owner, editor, editableOwner, otherOwner);
         _context.ShoppingLists.AddRange(listOwned, listEditable, otherList);
         await _context.SaveChangesAsync();
 

@@ -5,10 +5,9 @@ using System.Threading.Tasks;
 using AutoMapper;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
 using Moq;
-using ShoppingListBackend.Api.Data;
 using ShoppingListBackend.Api.DTOs.Common;
+using ShoppingListBackend.Api.DTOs.RealTime;
 using ShoppingListBackend.Api.DTOs.ShoppingList.Response;
 using ShoppingListBackend.Api.Hubs;
 using ShoppingListBackend.Api.Models;
@@ -18,13 +17,12 @@ using Xunit;
 
 namespace ShoppingListBackend.Tests.UnitTests.Hubs;
 
-public class ShoppingListHubTests
+public class ShoppingListHubTests : TestBase
 {
     private readonly Mock<IShoppingListService> _serviceMock;
     private readonly Mock<IShoppingListReadService> _readServiceMock;
     private readonly Mock<IEditingTracker> _trackerMock;
     private readonly Mock<IMapper> _mapperMock;
-    private readonly Mock<AppDbContext> _dbContextMock;
     private readonly Mock<IHubCallerClients> _clientsMock;
     private readonly Mock<IClientProxy> _clientProxyMock;
     private readonly Mock<IGroupManager> _groupsMock;
@@ -38,7 +36,6 @@ public class ShoppingListHubTests
         _readServiceMock = new Mock<IShoppingListReadService>();
         _trackerMock = new Mock<IEditingTracker>();
         _mapperMock = new Mock<IMapper>();
-        _dbContextMock = new Mock<AppDbContext>(new DbContextOptions<AppDbContext>());
         _clientsMock = new Mock<IHubCallerClients>();
         _clientProxyMock = new Mock<IClientProxy>();           // For Group and All
         var singleClientProxyMock = new Mock<ISingleClientProxy>(); // For Caller
@@ -54,7 +51,7 @@ public class ShoppingListHubTests
             _serviceMock.Object,
             _readServiceMock.Object,
             _trackerMock.Object,
-            _dbContextMock.Object,
+            _context,
             _mapperMock.Object)
         {
             Clients = _clientsMock.Object,
@@ -65,6 +62,7 @@ public class ShoppingListHubTests
         // Setup authentication claim
         var claims = new[] { new Claim(ClaimTypes.NameIdentifier, _deviceId.ToString()) };
         _contextMock.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity(claims)));
+        _contextMock.Setup(c => c.ConnectionId).Returns("connection-id");
     }
 
     [Fact]
@@ -74,17 +72,23 @@ public class ShoppingListHubTests
         var summaries = new[] { new DeviceShoppingListHeader { Id = listId } };
         _readServiceMock.Setup(r => r.GetSummariesForDeviceAsync(_deviceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(summaries.ToList());
-        
-        var deviceInfo = new DeviceInfo { Id = _deviceId, UserName = "Test", Colour = "#FFF" };
-        var device = new Device { Id = _deviceId, UserName = "Test", Colour = "#FFF" };
-        _dbContextMock.Setup(db => db.Devices.FindAsync(_deviceId))
-            .ReturnsAsync(device);
+
+        var deviceInfo = new DeviceInfo { Id = _deviceId, UserName = "Test", Colour = "#FFFFFF" };
+        var device = TestData.CreateDevice(_deviceId, "Test", "#FFFFFF");
+        _context.Devices.Add(device);
+        await _context.SaveChangesAsync();
         _mapperMock.Setup(m => m.Map<DeviceInfo>(device)).Returns(deviceInfo);
+        _trackerMock.Setup(t => t.GetEditingDevices(listId)).Returns([deviceInfo]);
 
         await _hub.JoinList(listId);
 
-        _trackerMock.Verify(t => t.AddDevice(listId, deviceInfo, _hub.Context.ConnectionId), Times.Once);
-        _clientsMock.Verify(c => c.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", It.IsAny<List<DeviceInfo>>(), default), Times.Once);
+        _trackerMock.Verify(t => t.AddDevice(listId, deviceInfo, "connection-id"), Times.Once);
+        _clientProxyMock.Verify(
+            proxy => proxy.SendCoreAsync(
+                "CurrentlyEditingChanged",
+                It.Is<object?[]>(args => IsCurrentlyEditingEvent(args, listId, _deviceId)),
+                It.IsAny<CancellationToken>()),
+            Times.Once);
     }
 
     [Fact]
@@ -94,6 +98,10 @@ public class ShoppingListHubTests
         var summaries = new[] { new DeviceShoppingListHeader { Id = listId } };
         _readServiceMock.Setup(r => r.GetSummariesForDeviceAsync(_deviceId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(summaries.ToList());
+        var device = TestData.CreateDevice(_deviceId);
+        _context.Devices.Add(device);
+        await _context.SaveChangesAsync();
+        _mapperMock.Setup(m => m.Map<DeviceInfo>(device)).Returns(new DeviceInfo { Id = _deviceId });
 
         await _hub.JoinList(listId);
 
@@ -190,6 +198,8 @@ public class ShoppingListHubTests
     {
         var listId = Guid.NewGuid();
         var categoryName = "Produce";
+        _serviceMock.Setup(s => s.AddCategoryAsync(listId, _deviceId, categoryName))
+            .ReturnsAsync(new ShoppingListCategory { Id = Guid.NewGuid(), ShoppingListId = listId, Name = categoryName });
         await _hub.AddCategory(listId, categoryName);
         _serviceMock.Verify(s => s.AddCategoryAsync(listId, _deviceId, categoryName), Times.Once);
     }
@@ -225,6 +235,8 @@ public class ShoppingListHubTests
     {
         var categoryId = Guid.NewGuid();
         var description = "Apple";
+        _serviceMock.Setup(s => s.AddItemAsync(categoryId, _deviceId, description))
+            .ReturnsAsync(new ShoppingListItem { Id = Guid.NewGuid(), ShoppingListCategoryId = categoryId, Description = description });
         await _hub.AddItem(categoryId, description);
         _serviceMock.Verify(s => s.AddItemAsync(categoryId, _deviceId, description), Times.Once);
     }
@@ -290,4 +302,10 @@ public class ShoppingListHubTests
         Func<Task> act = () => _hub.JoinList(listId);
         await act.Should().ThrowAsync<HubException>().WithMessage("*Device ID*");
     }
+
+    private static bool IsCurrentlyEditingEvent(object?[] args, Guid listId, Guid deviceId)
+        => args.Length == 1 &&
+           args[0] is CurrentlyEditingChangedEvent ev &&
+           ev.ListId == listId &&
+           ev.EditingDevices.Any(d => d.Id == deviceId);
 }

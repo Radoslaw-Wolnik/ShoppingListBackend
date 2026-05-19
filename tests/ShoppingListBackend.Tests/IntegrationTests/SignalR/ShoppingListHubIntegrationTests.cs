@@ -32,8 +32,7 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var httpClient = Factory.CreateClient();
         httpClient.DefaultRequestHeaders.Add("X-API-Key", _device.ApiKey);
         var createResponse = await httpClient.PostAsJsonAsync("/api/shopping-lists", new CreateListRequest { Title = "Test List" });
-        var listResult = await createResponse.Content.ReadFromJsonAsync<dynamic>();
-        _listId = (Guid)listResult!.Id;
+        _listId = await createResponse.ReadCreatedIdAsync();
 
         // Build SignalR connection
         var hubUrl = new Uri(Factory.Server.BaseAddress, "/hub/shoppingLists");
@@ -74,8 +73,10 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var itemAddedEventReceived = new TaskCompletionSource<ItemAddedEvent>();
         _hubConnection!.On<ItemAddedEvent>("ShoppingListEvent", ev =>
         {
-            if (ev is ItemAddedEvent itemAdded)
-                itemAddedEventReceived.TrySetResult(itemAdded);
+            if (ev.EventType == "ItemAdded" && ev.Item is not null)
+            {
+                itemAddedEventReceived.TrySetResult(ev);
+            }
         });
 
         await _hubConnection!.InvokeAsync("JoinList", _listId);
@@ -83,7 +84,7 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var httpClient = Factory.CreateClient();
         httpClient.DefaultRequestHeaders.Add("X-API-Key", _device!.ApiKey);
         var addCategoryResponse = await httpClient.PostAsJsonAsync($"/api/shopping-lists/{_listId}/categories", new AddCategoryRequest { Name = "Produce" });
-        var categoryId = Guid.Parse(addCategoryResponse.Headers.Location!.Segments.Last());
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         await _hubConnection!.InvokeAsync("AddItem", categoryId, "Apple");
 
@@ -100,8 +101,10 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var toggledEventReceived = new TaskCompletionSource<ItemToggledEvent>();
         _hubConnection!.On<ItemToggledEvent>("ShoppingListEvent", ev =>
         {
-            if (ev is ItemToggledEvent toggled)
-                toggledEventReceived.TrySetResult(toggled);
+            if (ev.EventType == "ItemToggled")
+            {
+                toggledEventReceived.TrySetResult(ev);
+            }
         });
 
         await _hubConnection!.InvokeAsync("JoinList", _listId);
@@ -109,10 +112,10 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var httpClient = Factory.CreateClient();
         httpClient.DefaultRequestHeaders.Add("X-API-Key", _device!.ApiKey);
         var addCategoryResponse = await httpClient.PostAsJsonAsync($"/api/shopping-lists/{_listId}/categories", new AddCategoryRequest { Name = "Produce" });
-        var categoryId = Guid.Parse(addCategoryResponse.Headers.Location!.Segments.Last());
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         var addItemResponse = await httpClient.PostAsJsonAsync($"/api/shopping-lists/categories/{categoryId}/items", new AddItemRequest { Description = "Apple" });
-        var itemId = Guid.Parse(addItemResponse.Headers.Location!.Segments.Last());
+        var itemId = await addItemResponse.ReadCreatedIdAsync();
 
         await _hubConnection!.InvokeAsync("ToggleItem", itemId, true);
 
@@ -129,8 +132,10 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var deletedEventReceived = new TaskCompletionSource<ItemDeletedEvent>();
         _hubConnection!.On<ItemDeletedEvent>("ShoppingListEvent", ev =>
         {
-            if (ev is ItemDeletedEvent deleted)
-                deletedEventReceived.TrySetResult(deleted);
+            if (ev.EventType == "ItemDeleted")
+            {
+                deletedEventReceived.TrySetResult(ev);
+            }
         });
 
         await _hubConnection!.InvokeAsync("JoinList", _listId);
@@ -138,10 +143,10 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
         var httpClient = Factory.CreateClient();
         httpClient.DefaultRequestHeaders.Add("X-API-Key", _device!.ApiKey);
         var addCategoryResponse = await httpClient.PostAsJsonAsync($"/api/shopping-lists/{_listId}/categories", new AddCategoryRequest { Name = "Produce" });
-        var categoryId = Guid.Parse(addCategoryResponse.Headers.Location!.Segments.Last());
+        var categoryId = await addCategoryResponse.ReadCreatedIdAsync();
 
         var addItemResponse = await httpClient.PostAsJsonAsync($"/api/shopping-lists/categories/{categoryId}/items", new AddItemRequest { Description = "Apple" });
-        var itemId = Guid.Parse(addItemResponse.Headers.Location!.Segments.Last());
+        var itemId = await addItemResponse.ReadCreatedIdAsync();
 
         await _hubConnection!.InvokeAsync("DeleteItem", itemId);
 
@@ -163,7 +168,7 @@ public class ShoppingListHubIntegrationTests : IntegrationTestBase, IAsyncLifeti
             .Build();
 
         Func<Task> act = () => invalidConnection.StartAsync();
-        await act.Should().ThrowAsync<HubException>().WithMessage("*unauthorized*");
+        await act.Should().ThrowAsync<HttpRequestException>().WithMessage("*401*");
     }
 
     [Fact]

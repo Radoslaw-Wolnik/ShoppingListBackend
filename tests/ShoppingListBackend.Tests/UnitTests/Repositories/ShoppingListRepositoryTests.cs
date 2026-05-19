@@ -141,12 +141,12 @@ public class ShoppingListRepositoryTests : TestBase
     }
 
     [Fact]
-    public async Task GetListItemsQuery_ReturnsAllItemsInList()
+    public async Task GetCheckedItemsForListAsync_ReturnsOnlyCheckedItemsInList()
     {
         var list = TestData.CreateShoppingList(ownerId: Guid.NewGuid());
         var cat1 = TestData.CreateCategory(list.Id, 0);
         var cat2 = TestData.CreateCategory(list.Id, 1);
-        var item1 = TestData.CreateItem(cat1.Id, 0);
+        var item1 = TestData.CreateItem(cat1.Id, 0, isChecked: true);
         var item2 = TestData.CreateItem(cat2.Id, 0);
         list.Categories.Add(cat1);
         list.Categories.Add(cat2);
@@ -155,10 +155,9 @@ public class ShoppingListRepositoryTests : TestBase
         _repository.Add(list);
         await _context.SaveChangesAsync();
 
-        var itemsQuery = _repository.GetListItemsQuery(list.Id);
-        var items = await itemsQuery.ToListAsync();
-        items.Should().HaveCount(2);
+        var items = await _repository.GetCheckedItemsForListAsync(list.Id);
+        items.Should().HaveCount(1);
         items.Should().Contain(i => i.Id == item1.Id);
-        items.Should().Contain(i => i.Id == item2.Id);
+        items.Should().NotContain(i => i.Id == item2.Id);
     }
 }

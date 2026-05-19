@@ -440,7 +440,7 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
         checkedItem1.IsChecked = true;
         checkedItem2.IsChecked = true;
         var checkedItems = new List<ShoppingListItem> { checkedItem1, checkedItem2 };
-        _repoMock.Setup(r => r.GetListItemsQuery(listId)).Returns(checkedItems.AsQueryable());
+        _repoMock.Setup(r => r.GetCheckedItemsForListAsync(listId, default)).ReturnsAsync(checkedItems);
 
         await _service.ResetCheckedItemsAsync(listId, editorId);
 
