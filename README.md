@@ -1,191 +1,199 @@
 # Shopping List Backend
 
-**A collaborative shopping list backend with offline sync, real‑time updates, and per‑device accounts.**
+A pragmatic .NET 8 backend for collaborative shopping lists. It keeps the codebase compact while still separating HTTP endpoints, SignalR, services, repositories, validation, mapping, and persistence clearly enough to test and evolve.
 
-This service powers a shopping list app where multiple devices can edit the same list simultaneously, even when offline, with seamless synchronization when connectivity is restored.
+## What It Does
 
----
+- Registers devices and issues one-time API keys.
+- Stores API keys securely using BCrypt, with SHA-256 lookup for efficient validation.
+- Manages shopping lists, categories, and items with stable ordering.
+- Supports owners and editors for shared lists.
+- Supports direct device friendships.
+- Broadcasts list changes through SignalR so connected clients update instantly.
+- Tracks who is currently editing a list and broadcasts presence changes.
+- Validates request DTOs with FluentValidation before handlers run.
+- Returns consistent problem responses through custom error middleware.
 
-## Features
+## Architecture
 
-- **Per‑device accounts** – each device automatically registers and receives a unique API key; no password hassles.
-- **Shopping lists** – lists contain categories, each with nested items (description, completed state, position).
-- **Collaboration** – share lists with other devices via invite codes (permanent or single‑use). Permission levels: owner (full control) and editor (can edit but not delete/change ownership).
-- **Private lists** – lists can be marked as private and never shared.
-- **Real‑time collaboration** – changes propagate instantly via **SignalR** to all connected clients using partial updates (only changed data is sent).
-- **Offline‑first sync** – clients cache data locally with `LastUpdatedAt` timestamps. The server supports delta sync: clients fetch only what changed since their last sync.
-- **Partial updates** – both HTTP API and SignalR use granular operations (e.g., “add item”, “toggle item”) instead of sending whole lists, minimising bandwidth and simplifying conflict resolution.
-- **Docker ready** – includes a `Dockerfile` and `docker-compose.yml` for easy deployment.
+This is intentionally not a full multi-project Clean Architecture setup. It is a pragmatic vertical-slice style API in one deployable project:
 
-
-## Architecture: Pragmatic Clean Architecture
-
-We avoid the overhead of full Clean Architecture (multiple projects, MediatR, etc.) but still maintain clear separation of concerns for testability and maintainability. The project is a single .NET 8 web application organised into logical folders:
-
-```
-ShoppingListBackend.Api/
-├── Models/               # EF Core entities (database models)
-├── DTOs/                 # Request/response data transfer objects
-├── Repositories/         # Data access layer (interfaces + EF Core implementations)
-├── Services/             # Business logic (use cases)
-├── Hubs/                 # SignalR hubs for real‑time communication
-├── Middleware/           # Custom middleware (e.g., API key auth)
-├── Validators/           # FluentValidation validators
-├── Mappers/              # Mapping profiles (DTO ↔ Model)
-├── Data/                 # DbContext and migrations
-├── Extensions/           # DI extension methods
-├── Enpoints/             # Minimal Api endpoints - routes
-└── Program.cs            # Application entry point (Minimal APIs)
+```text
+src/ShoppingListBackend.Api/
+  Data/          EF Core DbContext
+  DTOs/          Request, response, and realtime contracts
+  Endpoints/     Minimal API route groups
+  Exceptions/    App-specific exception types
+  Extensions/    DI and endpoint helper extensions
+  Hubs/          SignalR hub
+  Mappers/       AutoMapper profiles
+  Middleware/    API key auth and error handling
+  Models/        EF Core entities
+  Repositories/  Persistence interfaces and EF implementations
+  Services/      Business logic / use cases
+  Validators/    FluentValidation validators
 ```
 
+The tests live under `tests/ShoppingListBackend.Tests/` and cover repositories, services, validators, middleware, HTTP endpoints, database mappings, and SignalR behavior.
 
-## Technology Stack
+## Tech Stack
 
-- **.NET 8** (Minimal APIs + SignalR)
-- **PostgreSQL** – primary database (EF Core)
-- **SignalR** – real‑time communication
-- **AutoMapper** – object mapping
-- **FluentValidation** – request validation
-- **BCrypt** – API key hashing
-- **Docker** – containerisation
+- .NET 8 Minimal APIs
+- Entity Framework Core
+- PostgreSQL via Npgsql
+- SignalR
+- FluentValidation
+- AutoMapper
+- BCrypt.Net
+- xUnit, FluentAssertions, Moq, WebApplicationFactory
 
+## Getting Started
 
-##  Getting Started
+### Run With Docker Compose
 
-### Prerequisites
-
-- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [Docker](https://www.docker.com/) (optional, for PostgreSQL)
-- [PostgreSQL](https://www.postgresql.org/) (or use Docker)
-
-### Setup
-
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/yourusername/shopping-list-backend.git
-   cd shopping-list-backend
-   ```
-
-2. **Configure environment variables**
-   Copy `.env.example` to `.env` and fill in your values:
-   ```bash
-   cp .env.example .env
-   ```
-   Required variables:
-   - `POSTGRES_CONNECTION` – connection string to PostgreSQL
-   - `ASPNETCORE_ENVIRONMENT` – `Development` or `Production`
-
-3. **Run PostgreSQL (Docker)**
-   ```bash
-   docker run --name shopping-db -e POSTGRES_PASSWORD=secret -e POSTGRES_DB=shopping -p 5432:5432 -d postgres
-   ```
-   Or use the provided `docker-compose.yml` to run both the database and the app.
-
-4. **Run database migrations**
-   ```bash
-   dotnet ef database update --project ShoppingListBackend.Api
-   ```
-
-5. **Run the application**
-   ```bash
-   cd ShoppingListBackend.Api
-   dotnet run
-   ```
-   The API will be available at `http://localhost:5000`.
-
-### Docker Compose (full stack)
+Copy the sample environment file and change the password before using it:
 
 ```bash
-docker-compose up -d
+cp .env.example .env
+docker compose up --build
 ```
 
+The API is exposed at `http://localhost:8080`.
 
-##  Authentication
+The compose setup is intended for local development. It runs the API in `Development` so EF Core can create the schema with `EnsureCreated`. For production, use migrations instead of automatic schema creation.
 
-Each device is a “user”. On first launch, the app generates a unique device ID (GUID) and registers it with the backend:
+### Run Locally
 
+Start PostgreSQL, then provide the connection string:
+
+```powershell
+$env:ConnectionStrings__DefaultConnection="Host=localhost;Port=5432;Database=ShoppingListApp;Username=ShoppingListApp;Password=change-me"
+dotnet run --project src/ShoppingListBackend.Api
 ```
-POST /api/register
+
+Health check:
+
+```bash
+GET /health
+```
+
+## Authentication
+
+Register a device:
+
+```http
+POST /api/devices/register
+```
+
+Response:
+
+```json
 {
-  "deviceId": "3fa85f64-5717-4562-b3fc-2c963f66afa6"
+  "deviceId": "00000000-0000-0000-0000-000000000000",
+  "apiKey": "returned-once"
 }
 ```
 
-The server returns an **API key** (a long random string). The device stores it securely and includes it in every request as the `X-API-Key` header. The key is hashed with BCrypt before storage.
+Send the API key on authenticated HTTP requests:
 
-All endpoints (except `/api/register`) require this key. SignalR connections also authenticate using the same key (passed as a query string).
+```http
+X-API-Key: returned-once
+```
 
+SignalR also accepts the same key. .NET clients can send it as a header; browser clients can use the `apiKey` query string if headers are not available during WebSocket negotiation.
 
-## Real‑time Collaboration (SignalR)
+## Main HTTP Routes
 
-Clients connect to the hub at `/hub/shoppingLists`. After authenticating (the key is validated automatically), they can join list groups and perform operations:
+Device routes:
 
-| Hub method             | Description                                    |
-|------------------------|------------------------------------------------|
-| `JoinList(listId)`     | Subscribe to real‑time updates for a list      |
-| `AddItem(listId, description, categoryId?)` | Add a new item to a category      |
-| `ToggleItem(listId, itemId)` | Toggle completion state                  |
-| `DeleteItem(listId, itemId)` | Remove an item                           |
-| `RenameList(listId, newName)` | Change list name                       |
-| `ReorderItem(listId, itemId, newOrder)` | Reorder items                      |
+- `POST /api/devices/register`
+- `GET /api/devices/me`
+- `PUT /api/devices/me/username`
+- `PUT /api/devices/me/colour`
+- `POST /api/devices/me/friends`
+- `GET /api/devices/me/friends`
+- `DELETE /api/devices/me/friends/{friendId}`
+- `DELETE /api/devices/me`
 
-When any change occurs, the server broadcasts a **partial update** (e.g., `ItemAdded`, `ItemToggled`) to all other clients in the list group, containing only the affected data. This keeps bandwidth low and ensures UI updates are instant.
+Shopping list routes:
 
+- `GET /api/shopping-lists`
+- `GET /api/shopping-lists/{id}`
+- `POST /api/shopping-lists`
+- `PUT /api/shopping-lists/{id}/title`
+- `DELETE /api/shopping-lists/{id}`
+- `POST /api/shopping-lists/{id}/copy`
+- `POST /api/shopping-lists/{id}/reset-checked`
+- `POST /api/shopping-lists/{id}/editors`
+- `DELETE /api/shopping-lists/{id}/editors/{editorId}`
+- `POST /api/shopping-lists/{listId}/categories`
+- `PUT /api/shopping-lists/categories/{categoryId}`
+- `DELETE /api/shopping-lists/categories/{categoryId}`
+- `PUT /api/shopping-lists/categories/{categoryId}/reorder`
+- `POST /api/shopping-lists/categories/{categoryId}/items`
+- `PUT /api/shopping-lists/items/{itemId}`
+- `PUT /api/shopping-lists/items/{itemId}/toggle`
+- `DELETE /api/shopping-lists/items/{itemId}`
+- `PUT /api/shopping-lists/categories/{categoryId}/items/{itemId}/reorder`
+- `PUT /api/shopping-lists/items/{itemId}/move`
 
-## Data Model Overview
+## SignalR
 
-The main entities are:
+Hub URL:
 
-- **Device** – represents a client device. Contains `Id` (public device ID), `ApiKeyHash`, `ApiKeyPrefix` (for fast lookup), `CreatedAt`.
-- **ShoppingList** – has `Id`, `Name`, `OwnerDeviceId`, `CreatedAt`, `LastUpdatedAt`, `IsPrivate`.
-- **Category** – optional grouping within a list. Has `Id`, `Name`, `ShoppingListId`, `Order`.
-- **ShoppingListItem** – belongs to a category (or directly to a list if no categories). Has `Id`, `Description`, `IsChecked`, `Order`, `CategoryId` (nullable), `ShoppingListId`.
-- **Share** – links a device to a list with a permission level (`Owner` or `Editor`). Used for collaboration.
-- **FriendCode** – a code generated by a device to allow others to add them as friends. Contains `Code`, `DeviceId`, `ExpiresAt`, `IsSingleUse`.
+```text
+/hub/shoppingLists
+```
 
-For the full schema, see the `Models/` folder.
+Important hub methods:
 
+- `JoinList(listId)`
+- `LeaveList(listId)`
+- `CreateList(title)`
+- `UpdateListTitle(listId, newTitle)`
+- `DeleteList(listId)`
+- `AddCategory(listId, categoryName)`
+- `UpdateCategory(categoryId, newName)`
+- `DeleteCategory(categoryId)`
+- `ReorderCategory(categoryId, newPosition)`
+- `AddItem(categoryId, description)`
+- `UpdateItemDescription(itemId, newDescription)`
+- `ToggleItem(itemId, isChecked)`
+- `DeleteItem(itemId)`
+- `ReorderItem(categoryId, itemId, newPosition)`
+- `MoveItem(itemId, newCategoryId)`
+- `ResetCheckedItems(listId)`
 
-##  Sync Strategy (Offline‑First)
-
-To support offline editing and efficient syncing:
-
-- Every entity has a `LastUpdatedAt` UTC timestamp.
-- Clients store the latest `LastUpdatedAt` they have received for each list.
-- The client requests changes since that timestamp using `GET /api/lists/sync?since={timestamp}`.
-- The server returns only entities that changed after that time (a delta).
-- When the client makes a change while offline, it stores the change locally with a pending flag.
-- On reconnection, the client sends the pending changes to the server (as partial operations, not the whole list). The server applies them and updates timestamps.
-
-All writes (HTTP and SignalR) are idempotent and include the new `LastUpdatedAt` in the response.
-
-
-## Permissions & Friend System
-
-- **List owners** can:
-  - Delete the list
-  - Change list name
-  - Share the list with other devices (as editor or co‑owner)
-  - Remove editors/co‑owners
-  - Add/remove items (they can also act as editors)
-
-- **Editors** can:
-  - Add, modify, reorder, and delete items
-  - Toggle completion
-  - They cannot delete the list, change its name, or manage shares.
-
-- **Friend codes**:
-  - A device can generate a 6 digit code (e.g., `ABC123`) that another device can redeem to add the first device as a friend.
-  - Codes can be permanent or single‑use.
-  - Once two devices are friends, they can share lists with each other directly (by adding the friend’s device ID to the list’s shares).
-
+Realtime messages are sent to list groups as `ShoppingListEvent` payloads with an `eventType`, `listId`, timestamp, and event-specific fields. Presence changes are sent as `CurrentlyEditingChanged`.
 
 ## Testing
 
-- **Unit tests** – for services and repositories (using xUnit + Moq).
-- **Integration tests** – for API endpoints and SignalR hubs (using `WebApplicationFactory`).
+Run everything:
 
-Run all tests:
 ```bash
 dotnet test
 ```
+
+Current suite coverage includes:
+
+- Unit tests for services, repositories, validators, middleware, mapping, and the SignalR hub.
+- Integration tests for device endpoints, shopping list endpoints, EF Core mappings, and SignalR broadcasts.
+- Validation filter coverage for real HTTP requests.
+
+## Production Notes
+
+- Add EF Core migrations before production deployment.
+- Keep API keys out of logs and client-visible telemetry.
+- Store `.env` outside source control; this repo ignores it by default.
+- Configure CORS explicitly before exposing the API to browser clients.
+- Consider a distributed presence tracker if the API will run on multiple instances.
+- Consider adding refresh/rotation flows for device API keys.
+
+## Current Boundaries
+
+The code has the model shape for some future features, but these are not complete yet:
+
+- Friend-code invitations.
+- Conflict-resolution workflows for true offline-first sync.
+- EF migration files.
+- Multi-instance SignalR backplane/presence storage.
