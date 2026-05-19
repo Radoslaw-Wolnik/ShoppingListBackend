@@ -45,6 +45,11 @@ public class AppDbContext : DbContext
             entity.HasIndex(s => s.OwnerDeviceId);
             entity.Property(s => s.IsPrivate).HasDefaultValue(false);
 
+            entity.HasOne(s => s.Owner)
+                  .WithMany(d => d.OwnedShoppingLists)
+                  .HasForeignKey(s => s.OwnerDeviceId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
             entity.HasMany(s => s.Categories)
                   .WithOne(c => c.ShoppingList)
                   .HasForeignKey(c => c.ShoppingListId)
