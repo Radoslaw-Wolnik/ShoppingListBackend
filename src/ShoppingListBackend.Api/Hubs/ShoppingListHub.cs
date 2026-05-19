@@ -3,6 +3,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using ShoppingListBackend.Api.DTOs.Common;
+using ShoppingListBackend.Api.DTOs.RealTime;
 using ShoppingListBackend.Api.DTOs.ShoppingList.Response;
 using ShoppingListBackend.Api.Models;
 using ShoppingListBackend.Api.Services;
@@ -48,6 +49,16 @@ public class ShoppingListHub : Hub
         return _mapper.Map<DeviceInfo>(device);
     }
 
+    private async Task BroadcastCurrentlyEditingAsync(Guid listId)
+    {
+        var editors = _editingTracker.GetEditingDevices(listId);
+        await Clients.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", new CurrentlyEditingChangedEvent
+        {
+            ListId = listId,
+            EditingDevices = editors
+        });
+    }
+
     // --- Group management with presence ---
     public async Task JoinList(Guid listId)
     {
@@ -63,8 +74,7 @@ public class ShoppingListHub : Hub
         // Presence tracking
         var deviceInfo = await GetDeviceInfoAsync(deviceId);
         _editingTracker.AddDevice(listId, deviceInfo, Context.ConnectionId);
-        var editors = _editingTracker.GetEditingDevices(listId);
-        await Clients.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", editors);
+        await BroadcastCurrentlyEditingAsync(listId);
     }
 
     public async Task LeaveList(Guid listId)
@@ -72,13 +82,15 @@ public class ShoppingListHub : Hub
         var deviceId = GetDeviceId();
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"list-{listId}");
         _editingTracker.RemoveDevice(listId, deviceId);
-        var editors = _editingTracker.GetEditingDevices(listId);
-        await Clients.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", editors);
+        await BroadcastCurrentlyEditingAsync(listId);
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        _editingTracker.RemoveConnection(Context.ConnectionId);
+        var affectedListIds = _editingTracker.RemoveConnection(Context.ConnectionId);
+        foreach (var listId in affectedListIds)
+            await BroadcastCurrentlyEditingAsync(listId);
+
         await base.OnDisconnectedAsync(exception);
     }
 

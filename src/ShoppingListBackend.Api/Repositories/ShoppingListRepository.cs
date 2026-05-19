@@ -51,9 +51,9 @@ public class ShoppingListRepository(AppDbContext context) : IShoppingListReposit
 
     public void DeleteItem(ShoppingListItem item) => _context.ShoppingListItems.Remove(item);
 
-    public IQueryable<ShoppingListItem> GetListItemsQuery(Guid listId)
-        => from i in _context.ShoppingListItems
-           join c in _context.ShoppingListCategories on i.ShoppingListCategoryId equals c.Id
-           where c.ShoppingListId == listId
-           select i;
+    public Task<List<ShoppingListItem>> GetCheckedItemsForListAsync(Guid listId, CancellationToken ct = default)
+        => (from i in _context.ShoppingListItems
+            join c in _context.ShoppingListCategories on i.ShoppingListCategoryId equals c.Id
+            where c.ShoppingListId == listId && i.IsChecked
+            select i).ToListAsync(ct);
 }

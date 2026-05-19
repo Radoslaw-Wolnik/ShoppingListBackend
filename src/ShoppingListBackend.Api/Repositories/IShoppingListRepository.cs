@@ -13,6 +13,5 @@ public interface IShoppingListRepository
     void DeleteCategory(ShoppingListCategory category);
     void AddItem(ShoppingListItem item);
     void DeleteItem(ShoppingListItem item);
-    // For batch operations like resetting checked items, we provide a query method
-    IQueryable<ShoppingListItem> GetListItemsQuery(Guid listId);
+    Task<List<ShoppingListItem>> GetCheckedItemsForListAsync(Guid listId, CancellationToken ct = default);
 }

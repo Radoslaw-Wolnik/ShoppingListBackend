@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
+using Microsoft.AspNetCore.WebUtilities;
 using ShoppingListBackend.Api.Data;
-using ShoppingListBackend.Api.DTOs;
 using ShoppingListBackend.Api.DTOs.Device;
 using ShoppingListBackend.Api.Models;
 using ShoppingListBackend.Api.Repositories;
@@ -28,7 +28,8 @@ public class AuthService(IDeviceRepository deviceRepo, IHashService hashService,
             ApiKeyHash = apiKeyHash,
             ApiKeySha256 = apiKeySha256,
             CreatedAt = DateTime.UtcNow,
-            // UserName and Colour can be set later by the user
+            UserName = $"Device-{deviceId:N}"[..18],
+            Colour = "#4F46E5"
         };
 
         _deviceRepo.Add(device);
@@ -61,7 +62,7 @@ public class AuthService(IDeviceRepository deviceRepo, IHashService hashService,
     {
         var bytes = new byte[32]; // 256 bits
         RandomNumberGenerator.Fill(bytes);
-        return Convert.ToBase64String(bytes);
+        return WebEncoders.Base64UrlEncode(bytes);
     }
 
     private static string ComputeSha256(string input)

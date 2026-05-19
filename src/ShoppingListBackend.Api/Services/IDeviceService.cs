@@ -10,5 +10,5 @@ public interface IDeviceService
     Task AddFriendAsync(Guid deviceId, Guid friendId);
     Task RemoveFriendAsync(Guid deviceId, Guid friendId);
     Task DeleteDeviceAsync(Guid deviceId);
-    Task<IEnumerable<Device>> GetFriendsAsync(Guid deviceId);
+    Task<IReadOnlyList<Device>> GetFriendsAsync(Guid deviceId);
 }

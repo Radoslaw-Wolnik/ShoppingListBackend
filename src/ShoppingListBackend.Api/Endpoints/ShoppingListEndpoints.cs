@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ShoppingListBackend.Api.DTOs.ShoppingList.Request;
 using ShoppingListBackend.Api.DTOs.ShoppingList.Response;
+using ShoppingListBackend.Api.Extensions;
 using ShoppingListBackend.Api.Services;
 
 namespace ShoppingListBackend.Api.Endpoints;
@@ -14,35 +15,46 @@ public static class ShoppingListEndpoints
         // List management
         group.MapGet("/", GetListsForUser);
         group.MapGet("/{id:guid}", GetListById);
-        group.MapPost("/", CreateList);
-        group.MapPut("/{id:guid}/title", UpdateListTitle);
+        group.MapPost("/", CreateList)
+            .WithRequestValidation<CreateListRequest>();
+        group.MapPut("/{id:guid}/title", UpdateListTitle)
+            .WithRequestValidation<UpdateTitleRequest>();
         group.MapDelete("/{id:guid}", DeleteList);
         group.MapPost("/{id:guid}/copy", CopyList);
         group.MapPost("/{id:guid}/reset-checked", ResetCheckedItems);
 
         // Editors
-        group.MapPost("/{id:guid}/editors", AddEditor);
+        group.MapPost("/{id:guid}/editors", AddEditor)
+            .WithRequestValidation<AddEditorRequest>();
         group.MapDelete("/{id:guid}/editors/{editorId:guid}", RemoveEditor);
 
         // Categories
-        group.MapPost("/{listId:guid}/categories", AddCategory);
-        group.MapPut("/categories/{categoryId:guid}", UpdateCategory);
+        group.MapPost("/{listId:guid}/categories", AddCategory)
+            .WithRequestValidation<AddCategoryRequest>();
+        group.MapPut("/categories/{categoryId:guid}", UpdateCategory)
+            .WithRequestValidation<UpdateCategoryNameRequest>();
         group.MapDelete("/categories/{categoryId:guid}", DeleteCategory);
-        group.MapPut("/categories/{categoryId:guid}/reorder", ReorderCategory);
+        group.MapPut("/categories/{categoryId:guid}/reorder", ReorderCategory)
+            .WithRequestValidation<ReorderCategoryRequest>();
 
         // Items
-        group.MapPost("/categories/{categoryId:guid}/items", AddItem);
-        group.MapPut("/items/{itemId:guid}", UpdateItem);
-        group.MapPut("/items/{itemId:guid}/toggle", ToggleItem);
+        group.MapPost("/categories/{categoryId:guid}/items", AddItem)
+            .WithRequestValidation<AddItemRequest>();
+        group.MapPut("/items/{itemId:guid}", UpdateItem)
+            .WithRequestValidation<UpdateItemDescriptionRequest>();
+        group.MapPut("/items/{itemId:guid}/toggle", ToggleItem)
+            .WithRequestValidation<ToggleItemRequest>();
         group.MapDelete("/items/{itemId:guid}", DeleteItem);
-        group.MapPut("/categories/{categoryId:guid}/items/{itemId:guid}/reorder", ReorderItem);
-        group.MapPut("/items/{itemId:guid}/move", MoveItem);
+        group.MapPut("/categories/{categoryId:guid}/items/{itemId:guid}/reorder", ReorderItem)
+            .WithRequestValidation<ReorderItemRequest>();
+        group.MapPut("/items/{itemId:guid}/move", MoveItem)
+            .WithRequestValidation<MoveItemRequest>();
     }
 
     // --- Handlers ---
     private static async Task<IResult> GetListsForUser(
         HttpContext httpContext,
-        ShoppingListReadService readService)
+        IShoppingListReadService readService)
     {
         var deviceId = GetDeviceId(httpContext);
         var summaries = await readService.GetSummariesForDeviceAsync(deviceId);
@@ -52,7 +64,7 @@ public static class ShoppingListEndpoints
     private static async Task<IResult> GetListById(
         Guid id,
         HttpContext httpContext,
-        ShoppingListReadService readService)
+        IShoppingListReadService readService)
     {
         var deviceId = GetDeviceId(httpContext);
         var fullList = await readService.GetHydratedListAsync(id, deviceId);
@@ -141,8 +153,8 @@ public static class ShoppingListEndpoints
         AddCategoryRequest request)
     {
         var deviceId = GetDeviceId(httpContext);
-        await listService.AddCategoryAsync(listId, deviceId, request.Name);
-        return Results.Created($"/api/shopping-lists/{listId}/categories", null);
+        var category = await listService.AddCategoryAsync(listId, deviceId, request.Name);
+        return Results.Created($"/api/shopping-lists/categories/{category.Id}", new { category.Id });
     }
 
     private static async Task<IResult> UpdateCategory(
@@ -186,8 +198,8 @@ public static class ShoppingListEndpoints
         AddItemRequest request)
     {
         var deviceId = GetDeviceId(httpContext);
-        await listService.AddItemAsync(categoryId, deviceId, request.Description);
-        return Results.Created($"/api/categories/{categoryId}/items", null);
+        var item = await listService.AddItemAsync(categoryId, deviceId, request.Description);
+        return Results.Created($"/api/shopping-lists/items/{item.Id}", new { item.Id });
     }
 
     private static async Task<IResult> UpdateItem(

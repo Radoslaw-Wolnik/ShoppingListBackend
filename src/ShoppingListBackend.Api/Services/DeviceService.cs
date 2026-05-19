@@ -1,4 +1,3 @@
-using Microsoft.EntityFrameworkCore;
 using ShoppingListBackend.Api.Data;
 using ShoppingListBackend.Api.DTOs;
 using ShoppingListBackend.Api.Models;
@@ -47,7 +46,7 @@ public class DeviceService(IDeviceRepository deviceRepo, AppDbContext context) :
             throw new KeyNotFoundException($"Friend device {friendId} not found");
 
         // Check if already friends – if not, add
-        var existing = await _deviceRepo.GetFriends(deviceId).AnyAsync(f => f.Id == friendId);
+        var existing = await _deviceRepo.AreFriendsAsync(deviceId, friendId);
         if (existing) return;
 
         _deviceRepo.AddFriend(deviceId, friendId);
@@ -70,8 +69,8 @@ public class DeviceService(IDeviceRepository deviceRepo, AppDbContext context) :
     }
 
 
-    public async Task<IEnumerable<Device>> GetFriendsAsync(Guid deviceId)
+    public async Task<IReadOnlyList<Device>> GetFriendsAsync(Guid deviceId)
     {
-        return await _deviceRepo.GetFriends(deviceId).ToListAsync();
+        return await _deviceRepo.GetFriendsAsync(deviceId);
     }
 }

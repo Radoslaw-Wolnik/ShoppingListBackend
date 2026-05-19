@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using ShoppingListBackend.Api.DTOs.Common;
 using ShoppingListBackend.Api.DTOs.Device;
+using ShoppingListBackend.Api.Extensions;
 using ShoppingListBackend.Api.Services;
 
 namespace ShoppingListBackend.Api.Endpoints;
@@ -16,9 +17,15 @@ public static class DeviceEndpoints
 
         // Authenticated endpoints
         group.MapGet("/me", GetMyDevice).RequireAuthorization();
-        group.MapPut("/me/username", UpdateUsername).RequireAuthorization();
-        group.MapPut("/me/colour", UpdateColour).RequireAuthorization();
-        group.MapPost("/me/friends", AddFriend).RequireAuthorization();
+        group.MapPut("/me/username", UpdateUsername)
+            .RequireAuthorization()
+            .WithRequestValidation<UpdateUsernameRequest>();
+        group.MapPut("/me/colour", UpdateColour)
+            .RequireAuthorization()
+            .WithRequestValidation<UpdateColourRequest>();
+        group.MapPost("/me/friends", AddFriend)
+            .RequireAuthorization()
+            .WithRequestValidation<AddFriendRequest>();
         group.MapDelete("/me/friends/{friendId:guid}", RemoveFriend).RequireAuthorization();
         group.MapGet("/me/friends", GetFriends).RequireAuthorization();
         group.MapDelete("/me", DeleteDevice).RequireAuthorization();

@@ -5,7 +5,7 @@ public class Device
     public Guid Id { get; set; } // Device identifier (public)
     public string ApiKeyHash { get; set; } = null!; // Hashed API key
     public string ApiKeySha256 { get; set; } = null!;
-    
+
     // user info
     public string UserName { get; set; } = null!;
     public string Colour { get; set; } = null!;

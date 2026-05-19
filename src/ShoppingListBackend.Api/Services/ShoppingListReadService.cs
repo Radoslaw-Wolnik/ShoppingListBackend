@@ -108,8 +108,8 @@ public class ShoppingListReadService : IShoppingListReadService
         return list;
     }
 
-    public async Task<List<DeviceInfo>> GetCurrentlyEditingAsync(Guid listId)
+    public Task<List<DeviceInfo>> GetCurrentlyEditingAsync(Guid listId)
     {
-        return _editingTracker.GetEditingDevices(listId);
+        return Task.FromResult(_editingTracker.GetEditingDevices(listId));
     }
 }

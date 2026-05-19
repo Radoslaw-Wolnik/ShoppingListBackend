@@ -18,8 +18,11 @@ public class AppDbContext : DbContext
         modelBuilder.Entity<Device>(entity =>
         {
             entity.HasKey(d => d.Id);
-            entity.HasIndex(d => d.ApiKeyHash).IsUnique();
-            entity.HasIndex(d => d.ApiKeySha256);
+            entity.Property(d => d.ApiKeyHash).IsRequired();
+            entity.Property(d => d.ApiKeySha256).IsRequired();
+            entity.Property(d => d.UserName).IsRequired().HasMaxLength(50);
+            entity.Property(d => d.Colour).IsRequired().HasMaxLength(7);
+            entity.HasIndex(d => d.ApiKeySha256).IsUnique();
         });
 
         modelBuilder.Entity<DeviceFriend>(entity =>

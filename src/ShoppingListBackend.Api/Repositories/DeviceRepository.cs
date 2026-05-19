@@ -21,7 +21,7 @@ public class DeviceRepository(AppDbContext context) : IDeviceRepository
     public void Delete(Device device) => _context.Devices.Remove(device);
 
     public void AddFriend(Guid deviceId, Guid friendId)
-        => _context.DeviceFriends.Add(new DeviceFriend { DeviceId = deviceId, FriendId = friendId });
+        => _context.DeviceFriends.Add(new DeviceFriend { DeviceId = deviceId, FriendId = friendId, CreatedAt = DateTime.UtcNow });
 
     public void RemoveFriend(Guid deviceId, Guid friendId)
     {
@@ -40,9 +40,12 @@ public class DeviceRepository(AppDbContext context) : IDeviceRepository
         }
     }
 
-    public IQueryable<Device> GetFriends(Guid deviceId)
+    public Task<bool> AreFriendsAsync(Guid deviceId, Guid friendId, CancellationToken ct = default)
+        => _context.DeviceFriends.AnyAsync(df => df.DeviceId == deviceId && df.FriendId == friendId, ct);
+
+    public Task<List<Device>> GetFriendsAsync(Guid deviceId, CancellationToken ct = default)
         => _context.DeviceFriends
             .Where(df => df.DeviceId == deviceId)
-            .Select(df => df.Friend);
-
+            .Select(df => df.Friend)
+            .ToListAsync(ct);
 }

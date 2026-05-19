@@ -1,6 +1,5 @@
 using AutoMapper;
 using Microsoft.AspNetCore.SignalR;
-using Microsoft.EntityFrameworkCore;
 using ShoppingListBackend.Api.Data;
 using ShoppingListBackend.Api.DTOs.Common;
 using ShoppingListBackend.Api.DTOs.RealTime;
@@ -21,6 +20,26 @@ public class ShoppingListService(
     private readonly AppDbContext _context = context;
     private readonly IHubContext<ShoppingListHub> _hubContext = hubContext;
     private readonly IMapper _mapper = mapper;
+
+    private static int NextCategoryPosition(ShoppingList list)
+        => list.Categories.Count == 0 ? 0 : list.Categories.Max(c => c.Position) + 1;
+
+    private static int NextItemPosition(ShoppingListCategory category)
+        => category.Items.Count == 0 ? 0 : category.Items.Max(i => i.Position) + 1;
+
+    private static void ReindexCategories(IEnumerable<ShoppingListCategory> categories)
+    {
+        var ordered = categories.OrderBy(c => c.Position).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+            ordered[i].Position = i;
+    }
+
+    private static void ReindexItems(IEnumerable<ShoppingListItem> items)
+    {
+        var ordered = items.OrderBy(i => i.Position).ToList();
+        for (var i = 0; i < ordered.Count; i++)
+            ordered[i].Position = i;
+    }
 
     private async Task BroadcastAsync<T>(Guid listId, T @event) where T : ShoppingListEvent
     {
@@ -152,21 +171,24 @@ public class ShoppingListService(
         }
     }
 
-    public async Task AddCategoryAsync(Guid listId, Guid requesterId, string categoryName)
+    public async Task<ShoppingListCategory> AddCategoryAsync(Guid listId, Guid requesterId, string categoryName)
     {
         var list = await GetAndAuthorizeAsync(listId, requesterId, requireOwner: false);
         var newCategory = new ShoppingListCategory
         {
             ShoppingListId = listId,
             Name = categoryName,
-            Position = list.Categories.Count
+            Position = NextCategoryPosition(list)
         };
         _repo.AddCategory(newCategory);
+        if (!list.Categories.Contains(newCategory))
+            list.Categories.Add(newCategory);
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         var categoryDto = _mapper.Map<ShoppingListCategoryDto>(newCategory);
         await BroadcastAsync(listId, new CategoryAddedEvent { Category = categoryDto });
+        return newCategory;
     }
 
     public async Task UpdateCategoryNameAsync(Guid categoryId, Guid requesterId, string newName)
@@ -189,6 +211,8 @@ public class ShoppingListService(
 
         var list = await GetAndAuthorizeAsync(category.ShoppingListId, requesterId, requireOwner: false);
         _repo.DeleteCategory(category);
+        list.Categories.Remove(category);
+        ReindexCategories(list.Categories);
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
@@ -206,7 +230,8 @@ public class ShoppingListService(
         if (target == null) return;
 
         categories.Remove(target);
-        categories.Insert(newPosition, target);
+        var insertAt = Math.Clamp(newPosition, 0, categories.Count);
+        categories.Insert(insertAt, target);
         for (int i = 0; i < categories.Count; i++)
             categories[i].Position = i;
 
@@ -217,7 +242,7 @@ public class ShoppingListService(
         await BroadcastAsync(list.Id, new CategoryReorderedEvent { Categories = categoryDtos });
     }
 
-    public async Task AddItemAsync(Guid categoryId, Guid requesterId, string description)
+    public async Task<ShoppingListItem> AddItemAsync(Guid categoryId, Guid requesterId, string description)
     {
         var category = await _repo.GetCategoryByIdAsync(categoryId);
         if (category == null) throw new KeyNotFoundException();
@@ -228,14 +253,17 @@ public class ShoppingListService(
             ShoppingListCategoryId = categoryId,
             Description = description,
             IsChecked = false,
-            Position = category.Items.Count
+            Position = NextItemPosition(category)
         };
         _repo.AddItem(newItem);
+        if (!category.Items.Contains(newItem))
+            category.Items.Add(newItem);
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
         var itemDto = _mapper.Map<ShoppingListItemDto>(newItem);
         await BroadcastAsync(list.Id, new ItemAddedEvent { Item = itemDto });
+        return newItem;
     }
 
     public async Task UpdateItemDescriptionAsync(Guid itemId, Guid requesterId, string newDescription)
@@ -259,7 +287,7 @@ public class ShoppingListService(
 
         var category = await _repo.GetCategoryByIdAsync(item.ShoppingListCategoryId) ?? throw new KeyNotFoundException("Category not found");
         var list = await GetAndAuthorizeAsync(category.ShoppingListId, requesterId, requireOwner: false);
-        
+
         item.IsChecked = isChecked;
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
@@ -275,6 +303,8 @@ public class ShoppingListService(
         var category = await _repo.GetCategoryByIdAsync(item.ShoppingListCategoryId) ?? throw new KeyNotFoundException("Category not found");
         var list = await GetAndAuthorizeAsync(category.ShoppingListId, requesterId, requireOwner: false);
         _repo.DeleteItem(item);
+        category.Items.Remove(item);
+        ReindexItems(category.Items);
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
@@ -292,7 +322,8 @@ public class ShoppingListService(
         if (target == null) throw new KeyNotFoundException();
 
         items.Remove(target);
-        items.Insert(newPosition, target);
+        var insertAt = Math.Clamp(newPosition, 0, items.Count);
+        items.Insert(insertAt, target);
         for (int i = 0; i < items.Count; i++)
             items[i].Position = i;
 
@@ -316,32 +347,37 @@ public class ShoppingListService(
         var list = await GetAndAuthorizeAsync(oldCategory.ShoppingListId, requesterId, requireOwner: false);
         if (newCategory.ShoppingListId != list.Id)
             throw new InvalidOperationException("Cannot move item to a category from a different list");
+        if (oldCategory.Id == newCategory.Id)
+            return;
 
-        var oldItems = oldCategory.Items.OrderBy(i => i.Position).ToList();
-        oldItems.Remove(item);
-        for (int i = 0; i < oldItems.Count; i++)
-            oldItems[i].Position = i;
+        oldCategory.Items.Remove(item);
+        ReindexItems(oldCategory.Items);
 
         item.ShoppingListCategoryId = newCategoryId;
-        var newItems = newCategory.Items.OrderBy(i => i.Position).ToList();
-        item.Position = newItems.Count;
-        newItems.Add(item);
+        item.Position = NextItemPosition(newCategory);
+        newCategory.Items.Add(item);
+        ReindexItems(newCategory.Items);
 
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
 
-        // Optionally broadcast ItemMovedEvent
+        await BroadcastAsync(list.Id, new ItemMovedEvent
+        {
+            ItemId = itemId,
+            FromCategoryId = oldCategory.Id,
+            ToCategoryId = newCategoryId,
+            NewPosition = item.Position
+        });
     }
 
     public async Task ResetCheckedItemsAsync(Guid listId, Guid requesterId)
     {
         var list = await GetAndAuthorizeAsync(listId, requesterId, requireOwner: false);
-        var itemsToReset = await _repo.GetListItemsQuery(listId)
-            .Where(i => i.IsChecked)
-            .ToListAsync();
+        var itemsToReset = await _repo.GetCheckedItemsForListAsync(listId);
         foreach (var item in itemsToReset)
             item.IsChecked = false;
         list.UpdatedAt = DateTime.UtcNow;
         await _context.SaveChangesAsync();
+        await BroadcastAsync(listId, new ListItemsResetEvent());
     }
 }

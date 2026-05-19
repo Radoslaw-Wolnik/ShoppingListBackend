@@ -19,14 +19,20 @@ public class InMemoryEditingTracker : IEditingTracker
             listDevices.TryRemove(deviceId, out _);
     }
 
-    public void RemoveConnection(string connectionId)
+    public IReadOnlyCollection<Guid> RemoveConnection(string connectionId)
     {
+        var affectedLists = new List<Guid>();
         foreach (var (listId, listDevices) in _tracker)
         {
             var toRemove = listDevices.FirstOrDefault(kvp => kvp.Value.ConnectionId == connectionId);
             if (toRemove.Key != Guid.Empty)
+            {
                 listDevices.TryRemove(toRemove.Key, out _);
+                affectedLists.Add(listId);
+            }
         }
+
+        return affectedLists;
     }
 
     public List<DeviceInfo> GetEditingDevices(Guid listId)

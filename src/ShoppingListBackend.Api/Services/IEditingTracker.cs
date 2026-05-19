@@ -6,6 +6,6 @@ public interface IEditingTracker
 {
     void AddDevice(Guid listId, DeviceInfo device, string connectionId);
     void RemoveDevice(Guid listId, Guid deviceId);
-    void RemoveConnection(string connectionId);
+    IReadOnlyCollection<Guid> RemoveConnection(string connectionId);
     List<DeviceInfo> GetEditingDevices(Guid listId);
 }

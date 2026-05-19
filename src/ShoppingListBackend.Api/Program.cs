@@ -25,10 +25,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddRepositories();
 builder.Services.AddServices();
 
-// Read repository & read service
-builder.Services.AddScoped<IShoppingListReadService, ShoppingListReadService>();
-
-// Real‑time presence tracker
+// Real-time presence tracker
 builder.Services.AddSingleton<IEditingTracker, InMemoryEditingTracker>();
 
 // AutoMapper
@@ -43,6 +40,7 @@ builder.Services.AddAuthentication(options =>
     options.DefaultChallengeScheme = "ApiKey";
 })
 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
+builder.Services.AddAuthorization();
 
 // -------------------------------
 // 4. Validation, SignalR, Health Checks
@@ -56,9 +54,10 @@ builder.Services.AddHealthChecks();
 // -------------------------------
 var app = builder.Build();
 
-// Ensure database is created (development only)
-using (var scope = app.Services.CreateScope())
+// Local development uses EnsureCreated; production should run EF migrations.
+if (app.Environment.IsDevelopment())
 {
+    using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     dbContext.Database.EnsureCreated();
 }

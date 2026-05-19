@@ -11,5 +11,6 @@ public interface IDeviceRepository
     void Delete(Device device);
     void AddFriend(Guid deviceId, Guid friendId);
     void RemoveFriend(Guid deviceId, Guid friendId);
-    IQueryable<Device> GetFriends(Guid deviceId);
+    Task<bool> AreFriendsAsync(Guid deviceId, Guid friendId, CancellationToken ct = default);
+    Task<List<Device>> GetFriendsAsync(Guid deviceId, CancellationToken ct = default);
 }
