@@ -78,12 +78,15 @@ builder.Services.AddHealthChecks();
 // -------------------------------
 var app = builder.Build();
 
-// Local development uses EnsureCreated; production should run EF migrations.
+// Local development applies migrations automatically; production deployments should run them explicitly.
 if (app.Environment.IsDevelopment())
 {
     using var scope = app.Services.CreateScope();
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.EnsureCreated();
+    if (dbContext.Database.IsRelational())
+        dbContext.Database.Migrate();
+    else
+        dbContext.Database.EnsureCreated();
 }
 
 // -------------------------------
