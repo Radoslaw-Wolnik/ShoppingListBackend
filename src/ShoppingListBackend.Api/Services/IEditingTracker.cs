@@ -4,8 +4,8 @@ namespace ShoppingListBackend.Api.Services;
 
 public interface IEditingTracker
 {
-    void AddDevice(Guid listId, DeviceInfo device, string connectionId);
-    void RemoveDevice(Guid listId, Guid deviceId);
-    IReadOnlyCollection<Guid> RemoveConnection(string connectionId);
-    List<DeviceInfo> GetEditingDevices(Guid listId);
+    Task AddDeviceAsync(Guid listId, DeviceInfo device, string connectionId, CancellationToken ct = default);
+    Task RemoveDeviceAsync(Guid listId, Guid deviceId, CancellationToken ct = default);
+    Task<IReadOnlyCollection<Guid>> RemoveConnectionAsync(string connectionId, CancellationToken ct = default);
+    Task<List<DeviceInfo>> GetEditingDevicesAsync(Guid listId, CancellationToken ct = default);
 }

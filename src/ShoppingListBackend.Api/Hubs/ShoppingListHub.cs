@@ -51,7 +51,7 @@ public class ShoppingListHub : Hub
 
     private async Task BroadcastCurrentlyEditingAsync(Guid listId)
     {
-        var editors = _editingTracker.GetEditingDevices(listId);
+        var editors = await _editingTracker.GetEditingDevicesAsync(listId);
         await Clients.Group($"list-{listId}").SendAsync("CurrentlyEditingChanged", new CurrentlyEditingChangedEvent
         {
             ListId = listId,
@@ -73,7 +73,7 @@ public class ShoppingListHub : Hub
 
         // Presence tracking
         var deviceInfo = await GetDeviceInfoAsync(deviceId);
-        _editingTracker.AddDevice(listId, deviceInfo, Context.ConnectionId);
+        await _editingTracker.AddDeviceAsync(listId, deviceInfo, Context.ConnectionId, Context.ConnectionAborted);
         await BroadcastCurrentlyEditingAsync(listId);
     }
 
@@ -81,13 +81,13 @@ public class ShoppingListHub : Hub
     {
         var deviceId = GetDeviceId();
         await Groups.RemoveFromGroupAsync(Context.ConnectionId, $"list-{listId}");
-        _editingTracker.RemoveDevice(listId, deviceId);
+        await _editingTracker.RemoveDeviceAsync(listId, deviceId, Context.ConnectionAborted);
         await BroadcastCurrentlyEditingAsync(listId);
     }
 
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        var affectedListIds = _editingTracker.RemoveConnection(Context.ConnectionId);
+        var affectedListIds = await _editingTracker.RemoveConnectionAsync(Context.ConnectionId);
         foreach (var listId in affectedListIds)
             await BroadcastCurrentlyEditingAsync(listId);
 

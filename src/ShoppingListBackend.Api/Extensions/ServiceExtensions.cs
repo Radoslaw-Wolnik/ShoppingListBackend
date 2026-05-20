@@ -18,6 +18,7 @@ public static class ServiceExtensions
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IDeviceService, DeviceService>();
         services.AddScoped<IShoppingListReadService, ShoppingListReadService>();
+        services.AddScoped<IEditingTracker, DatabaseEditingTracker>();
         services.AddSingleton<IHashService, BcryptHashService>();
         return services;
     }

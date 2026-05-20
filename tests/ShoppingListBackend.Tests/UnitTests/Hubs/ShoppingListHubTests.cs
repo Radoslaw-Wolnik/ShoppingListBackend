@@ -63,6 +63,19 @@ public class ShoppingListHubTests : TestBase
         var claims = new[] { new Claim(ClaimTypes.NameIdentifier, _deviceId.ToString()) };
         _contextMock.Setup(c => c.User).Returns(new ClaimsPrincipal(new ClaimsIdentity(claims)));
         _contextMock.Setup(c => c.ConnectionId).Returns("connection-id");
+        _contextMock.Setup(c => c.ConnectionAborted).Returns(CancellationToken.None);
+        _trackerMock
+            .Setup(t => t.AddDeviceAsync(It.IsAny<Guid>(), It.IsAny<DeviceInfo>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _trackerMock
+            .Setup(t => t.RemoveDeviceAsync(It.IsAny<Guid>(), It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+        _trackerMock
+            .Setup(t => t.RemoveConnectionAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
+        _trackerMock
+            .Setup(t => t.GetEditingDevicesAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([]);
     }
 
     [Fact]
@@ -78,11 +91,11 @@ public class ShoppingListHubTests : TestBase
         _context.Devices.Add(device);
         await _context.SaveChangesAsync();
         _mapperMock.Setup(m => m.Map<DeviceInfo>(device)).Returns(deviceInfo);
-        _trackerMock.Setup(t => t.GetEditingDevices(listId)).Returns([deviceInfo]);
+        _trackerMock.Setup(t => t.GetEditingDevicesAsync(listId, It.IsAny<CancellationToken>())).ReturnsAsync([deviceInfo]);
 
         await _hub.JoinList(listId);
 
-        _trackerMock.Verify(t => t.AddDevice(listId, deviceInfo, "connection-id"), Times.Once);
+        _trackerMock.Verify(t => t.AddDeviceAsync(listId, deviceInfo, "connection-id", It.IsAny<CancellationToken>()), Times.Once);
         _clientProxyMock.Verify(
             proxy => proxy.SendCoreAsync(
                 "CurrentlyEditingChanged",

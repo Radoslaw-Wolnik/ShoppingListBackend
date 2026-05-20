@@ -26,9 +26,6 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddRepositories();
 builder.Services.AddServices();
 
-// Real-time presence tracker
-builder.Services.AddSingleton<IEditingTracker, InMemoryEditingTracker>();
-
 // AutoMapper
 builder.Services.AddAutoMapper(typeof(Program));
 

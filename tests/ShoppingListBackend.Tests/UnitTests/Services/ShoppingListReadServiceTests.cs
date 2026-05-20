@@ -13,12 +13,12 @@ namespace ShoppingListBackend.Tests.UnitTests.Services;
 
 public class ShoppingListReadServiceTests : TestBase
 {
-    private readonly InMemoryEditingTracker _tracker;
+    private readonly DatabaseEditingTracker _tracker;
     private readonly ShoppingListReadService _readService;
 
     public ShoppingListReadServiceTests()
     {
-        _tracker = new InMemoryEditingTracker();
+        _tracker = new DatabaseEditingTracker(_context);
         _readService = new ShoppingListReadService(_context, _tracker);
     }
 
@@ -108,10 +108,15 @@ public class ShoppingListReadServiceTests : TestBase
     public async Task GetCurrentlyEditingAsync_ReturnsDevicesFromTracker()
     {
         var listId = Guid.NewGuid();
+        var owner = TestData.CreateDevice();
         var device1 = new DeviceInfo { Id = Guid.NewGuid(), UserName = "A", Colour = "#111" };
         var device2 = new DeviceInfo { Id = Guid.NewGuid(), UserName = "B", Colour = "#222" };
-        _tracker.AddDevice(listId, device1, "conn1");
-        _tracker.AddDevice(listId, device2, "conn2");
+        var list = TestData.CreateShoppingList(listId, owner.Id);
+        _context.Devices.AddRange(owner, TestData.CreateDevice(device1.Id, device1.UserName, device1.Colour), TestData.CreateDevice(device2.Id, device2.UserName, device2.Colour));
+        _context.ShoppingLists.Add(list);
+        await _context.SaveChangesAsync();
+        await _tracker.AddDeviceAsync(listId, device1, "conn1");
+        await _tracker.AddDeviceAsync(listId, device2, "conn2");
 
         var editing = await _readService.GetCurrentlyEditingAsync(listId);
         editing.Should().Contain(d => d.Id == device1.Id);

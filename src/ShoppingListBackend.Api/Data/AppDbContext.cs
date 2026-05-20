@@ -12,6 +12,7 @@ public class AppDbContext : DbContext
     public DbSet<ShoppingList> ShoppingLists { get; set; }
     public DbSet<ShoppingListCategory> ShoppingListCategories { get; set; }
     public DbSet<ShoppingListItem> ShoppingListItems { get; set; }
+    public DbSet<EditingSession> EditingSessions { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -95,6 +96,26 @@ public class AppDbContext : DbContext
             entity.Property(i => i.Description).IsRequired().HasMaxLength(500);
             entity.HasIndex(i => new { i.ShoppingListCategoryId, i.Position });
             entity.Property(i => i.IsChecked).HasDefaultValue(false);
+        });
+
+        modelBuilder.Entity<EditingSession>(entity =>
+        {
+            entity.ToTable("EditingSessions");
+            entity.HasKey(s => new { s.ListId, s.DeviceId });
+            entity.Property(s => s.ConnectionId).IsRequired().HasMaxLength(256);
+            entity.Property(s => s.UserName).IsRequired().HasMaxLength(50);
+            entity.Property(s => s.Colour).IsRequired().HasMaxLength(7);
+            entity.HasIndex(s => s.ConnectionId);
+
+            entity.HasOne<ShoppingList>()
+                  .WithMany()
+                  .HasForeignKey(s => s.ListId)
+                  .OnDelete(DeleteBehavior.Cascade);
+
+            entity.HasOne<Device>()
+                  .WithMany()
+                  .HasForeignKey(s => s.DeviceId)
+                  .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

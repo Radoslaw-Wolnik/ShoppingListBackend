@@ -110,6 +110,6 @@ public class ShoppingListReadService : IShoppingListReadService
 
     public Task<List<DeviceInfo>> GetCurrentlyEditingAsync(Guid listId)
     {
-        return Task.FromResult(_editingTracker.GetEditingDevices(listId));
+        return _editingTracker.GetEditingDevicesAsync(listId);
     }
 }
