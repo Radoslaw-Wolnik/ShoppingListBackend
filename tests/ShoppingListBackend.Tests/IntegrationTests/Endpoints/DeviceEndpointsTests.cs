@@ -37,6 +37,14 @@ public class DeviceEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task GetMe_WithoutApiKey_ReturnsUnauthorized()
+    {
+        var response = await Client.GetAsync("/api/devices/me");
+
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
     public async Task UpdateUsername_UpdatesSuccessfully()
     {
         var (client, device) = await CreateAuthenticatedClient();
@@ -83,6 +91,33 @@ public class DeviceEndpointsTests : IntegrationTestBase
         var getFriends = await client1.GetAsync("/api/devices/me/friends");
         var friends = await getFriends.Content.ReadFromJsonAsync<FriendDto[]>();
         friends.Should().Contain(f => f.Id == device2.DeviceId);
+    }
+
+    [Fact]
+    public async Task AddFriend_WhenAddingSelf_ReturnsBadRequest()
+    {
+        var (client, device) = await CreateAuthenticatedClient();
+
+        var response = await client.PostAsJsonAsync("/api/devices/me/friends", new AddFriendRequest { FriendDeviceId = device.DeviceId });
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task AddFriend_WhenAlreadyFriends_DoesNotDuplicateFriend()
+    {
+        var (client1, _) = await CreateAuthenticatedClient();
+        var (_, device2) = await CreateAuthenticatedClient();
+        var request = new AddFriendRequest { FriendDeviceId = device2.DeviceId };
+
+        var firstResponse = await client1.PostAsJsonAsync("/api/devices/me/friends", request);
+        var secondResponse = await client1.PostAsJsonAsync("/api/devices/me/friends", request);
+        var friendsResponse = await client1.GetAsync("/api/devices/me/friends");
+        var friends = await friendsResponse.Content.ReadFromJsonAsync<FriendDto[]>();
+
+        firstResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        secondResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+        friends.Should().ContainSingle(f => f.Id == device2.DeviceId);
     }
 
     [Fact]

@@ -265,6 +265,22 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
     }
 
     [Fact]
+    public async Task DeleteCategoryAsync_ReindexesRemainingCategories()
+    {
+        var listId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var editorId = Guid.NewGuid();
+        var (list, categories, _) = CreateTestList(listId, ownerId);
+        list.Editors.Add(TestData.CreateDevice(editorId));
+        SetupGetListWithCategoriesAndItems(listId, list);
+        _repoMock.Setup(r => r.GetCategoryByIdAsync(categories[0].Id, default)).ReturnsAsync(categories[0]);
+
+        await _service.DeleteCategoryAsync(categories[0].Id, editorId);
+
+        list.Categories.Select(c => c.Position).Should().Equal(0);
+    }
+
+    [Fact]
     public async Task ReorderCategoryAsync_ShouldReorder_WhenEditor()
     {
         var listId = Guid.NewGuid();
@@ -283,6 +299,22 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
         ordered[1].Should().Be(categoryToMove);
         list.UpdatedAt.Should().NotBeNull();
         VerifyBroadcast<CategoryReorderedEvent>($"list-{listId}", e => e.Categories.Count == categories.Count);
+    }
+
+    [Fact]
+    public async Task ReorderCategoryAsync_ClampsOutOfRangePosition()
+    {
+        var listId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var editorId = Guid.NewGuid();
+        var (list, categories, _) = CreateTestList(listId, ownerId);
+        list.Editors.Add(TestData.CreateDevice(editorId));
+        SetupGetListWithCategoriesAndItems(listId, list);
+        _repoMock.Setup(r => r.GetCategoryByIdAsync(categories[0].Id, default)).ReturnsAsync(categories[0]);
+
+        await _service.ReorderCategoryAsync(categories[0].Id, editorId, 99);
+
+        list.Categories.OrderBy(c => c.Position).Last().Should().Be(categories[0]);
     }
 
     [Fact]
@@ -377,6 +409,24 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
     }
 
     [Fact]
+    public async Task DeleteItemAsync_ReindexesRemainingItems()
+    {
+        var listId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var editorId = Guid.NewGuid();
+        var (list, categories, items) = CreateTestList(listId, ownerId);
+        list.Editors.Add(TestData.CreateDevice(editorId));
+        SetupGetListWithCategoriesAndItems(listId, list);
+        var category = categories.First(c => c.Id == items[0].ShoppingListCategoryId);
+        _repoMock.Setup(r => r.GetItemByIdAsync(items[0].Id, default)).ReturnsAsync(items[0]);
+        _repoMock.Setup(r => r.GetCategoryByIdAsync(category.Id, default)).ReturnsAsync(category);
+
+        await _service.DeleteItemAsync(items[0].Id, editorId);
+
+        category.Items.Select(i => i.Position).Should().Equal(0);
+    }
+
+    [Fact]
     public async Task ReorderItemAsync_ShouldReorder_WhenEditor()
     {
         var listId = Guid.NewGuid();
@@ -398,6 +448,24 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
         itemsAfter.Last().Should().Be(item);
         list.UpdatedAt.Should().NotBeNull();
         VerifyBroadcast<ItemReorderedEvent>($"list-{listId}", e => e.CategoryId == category.Id && e.Items.Count == category.Items.Count);
+    }
+
+    [Fact]
+    public async Task ReorderItemAsync_ClampsOutOfRangePosition()
+    {
+        var listId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var editorId = Guid.NewGuid();
+        var (list, categories, _) = CreateTestList(listId, ownerId);
+        list.Editors.Add(TestData.CreateDevice(editorId));
+        SetupGetListWithCategoriesAndItems(listId, list);
+        var category = categories.First();
+        var item = category.Items.First();
+        _repoMock.Setup(r => r.GetCategoryByIdAsync(category.Id, default)).ReturnsAsync(category);
+
+        await _service.ReorderItemAsync(category.Id, editorId, item.Id, 99);
+
+        category.Items.OrderBy(i => i.Position).Last().Should().Be(item);
     }
 
     [Fact]
@@ -427,6 +495,28 @@ public class ShoppingListServiceTests : ShoppingListServiceTestsBase
             e.ItemId == item.Id &&
             e.FromCategoryId == sourceCategory.Id &&
             e.ToCategoryId == destCategory.Id);
+    }
+
+    [Fact]
+    public async Task MoveItemToCategoryAsync_ShouldThrow_WhenDestinationIsInAnotherList()
+    {
+        var listId = Guid.NewGuid();
+        var otherListId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var editorId = Guid.NewGuid();
+        var (list, categories, _) = CreateTestList(listId, ownerId);
+        list.Editors.Add(TestData.CreateDevice(editorId));
+        var sourceCategory = categories[0];
+        var foreignCategory = TestData.CreateCategory(otherListId, 0);
+        var item = sourceCategory.Items.First();
+        SetupGetListWithCategoriesAndItems(listId, list);
+        _repoMock.Setup(r => r.GetItemByIdAsync(item.Id, default)).ReturnsAsync(item);
+        _repoMock.Setup(r => r.GetCategoryByIdAsync(sourceCategory.Id, default)).ReturnsAsync(sourceCategory);
+        _repoMock.Setup(r => r.GetCategoryByIdAsync(foreignCategory.Id, default)).ReturnsAsync(foreignCategory);
+
+        Func<Task> act = () => _service.MoveItemToCategoryAsync(item.Id, editorId, foreignCategory.Id);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
     }
 
     [Fact]
