@@ -45,6 +45,19 @@ public class DeviceEndpointsTests : IntegrationTestBase
     }
 
     [Fact]
+    public async Task CorsPreflight_FromConfiguredDevelopmentOrigin_ReturnsCorsHeaders()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Options, "/api/devices/me");
+        request.Headers.Add("Origin", "http://localhost:5173");
+        request.Headers.Add("Access-Control-Request-Method", "GET");
+        request.Headers.Add("Access-Control-Request-Headers", "X-API-Key");
+
+        var response = await Client.SendAsync(request);
+
+        response.Headers.GetValues("Access-Control-Allow-Origin").Should().Contain("http://localhost:5173");
+    }
+
+    [Fact]
     public async Task UpdateUsername_UpdatesSuccessfully()
     {
         var (client, device) = await CreateAuthenticatedClient();

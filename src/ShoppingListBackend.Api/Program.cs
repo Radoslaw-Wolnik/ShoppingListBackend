@@ -12,6 +12,7 @@ using ShoppingListBackend.Api.Services;
 [assembly: InternalsVisibleTo("ShoppingListBackend.Tests")]
 
 var builder = WebApplication.CreateBuilder(args);
+const string CorsPolicyName = "ClientApp";
 
 // -------------------------------
 // 1. Database (PostgreSQL)
@@ -42,11 +43,37 @@ builder.Services.AddAuthentication(options =>
 .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>("ApiKey", null);
 builder.Services.AddAuthorization();
 
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? [];
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(CorsPolicyName, policy =>
+    {
+        policy.AllowAnyHeader()
+              .AllowAnyMethod();
+
+        if (allowedOrigins.Length > 0)
+        {
+            policy.WithOrigins(allowedOrigins)
+                  .AllowCredentials();
+        }
+        else if (builder.Environment.IsDevelopment())
+        {
+            policy.SetIsOriginAllowed(IsLoopbackOrigin)
+                  .AllowCredentials();
+        }
+    });
+});
+
 // -------------------------------
 // 4. Validation, SignalR, Health Checks
 // -------------------------------
 builder.Services.AddValidatorsFromAssemblyContaining<Program>();
-builder.Services.AddSignalR();
+var signalRBuilder = builder.Services.AddSignalR();
+var signalRRedisConnection = builder.Configuration.GetConnectionString("SignalRRedis");
+if (!string.IsNullOrWhiteSpace(signalRRedisConnection))
+{
+    signalRBuilder.AddStackExchangeRedis(signalRRedisConnection);
+}
 builder.Services.AddHealthChecks();
 
 // -------------------------------
@@ -66,6 +93,7 @@ if (app.Environment.IsDevelopment())
 // 6. Middleware pipeline
 // -------------------------------
 app.UseMiddleware<ErrorHandlingMiddleware>();
+app.UseCors(CorsPolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -83,5 +111,10 @@ app.MapShoppingListEndpoints();
 app.MapHub<ShoppingListHub>("/hub/shoppingLists");
 
 app.Run();
+
+static bool IsLoopbackOrigin(string origin)
+{
+    return Uri.TryCreate(origin, UriKind.Absolute, out var uri) && uri.IsLoopback;
+}
 
 public partial class Program { }
