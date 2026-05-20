@@ -5,12 +5,18 @@ using ShoppingListBackend.Api.Models;
 
 namespace ShoppingListBackend.Api.Services;
 
+/// <summary>
+/// Database-backed presence tracker. Keeping presence in PostgreSQL means each API
+/// instance sees the same currently-editing state when the app is horizontally scaled.
+/// </summary>
 public class DatabaseEditingTracker(AppDbContext context) : IEditingTracker
 {
     private readonly AppDbContext _context = context;
 
     public async Task AddDeviceAsync(Guid listId, DeviceInfo device, string connectionId, CancellationToken ct = default)
     {
+        // A device has at most one active presence row per list. Rejoining from a new
+        // connection updates the row so an old disconnect cannot remove fresh presence.
         var session = await _context.EditingSessions.FindAsync([listId, device.Id], ct);
         if (session is null)
         {

@@ -48,6 +48,8 @@ builder.Services.AddCors(options =>
         policy.AllowAnyHeader()
               .AllowAnyMethod();
 
+        // Production should list exact client origins. Development falls back to loopback
+        // origins so local Vite/React/mobile-web clients work without opening CORS wide.
         if (allowedOrigins.Length > 0)
         {
             policy.WithOrigins(allowedOrigins)
@@ -69,6 +71,8 @@ var signalRBuilder = builder.Services.AddSignalR();
 var signalRRedisConnection = builder.Configuration.GetConnectionString("SignalRRedis");
 if (!string.IsNullOrWhiteSpace(signalRRedisConnection))
 {
+    // Optional backplane for multi-instance deployments. Without this, SignalR groups
+    // are local to one API process even though database presence is shared.
     signalRBuilder.AddStackExchangeRedis(signalRRedisConnection);
 }
 builder.Services.AddHealthChecks();

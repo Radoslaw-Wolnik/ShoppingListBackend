@@ -2,6 +2,10 @@ using ShoppingListBackend.Api.DTOs.Common;
 
 namespace ShoppingListBackend.Api.Services;
 
+/// <summary>
+/// Stores transient list presence for SignalR clients.
+/// Implementations should be shared across app instances when the API is scaled out.
+/// </summary>
 public interface IEditingTracker
 {
     Task AddDeviceAsync(Guid listId, DeviceInfo device, string connectionId, CancellationToken ct = default);

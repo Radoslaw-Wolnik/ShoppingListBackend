@@ -21,6 +21,8 @@ public class ShoppingListService(
     private readonly IHubContext<ShoppingListHub> _hubContext = hubContext;
     private readonly IMapper _mapper = mapper;
 
+    // Positions are kept dense (0..n) so clients can render ordered categories/items
+    // without filling gaps or guessing where a deleted element used to be.
     private static int NextCategoryPosition(ShoppingList list)
         => list.Categories.Count == 0 ? 0 : list.Categories.Max(c => c.Position) + 1;
 

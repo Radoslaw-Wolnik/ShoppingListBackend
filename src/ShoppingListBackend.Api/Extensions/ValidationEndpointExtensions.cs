@@ -2,6 +2,9 @@ using FluentValidation;
 
 namespace ShoppingListBackend.Api.Extensions;
 
+/// <summary>
+/// Minimal API endpoint filter wiring for FluentValidation request DTOs.
+/// </summary>
 public static class ValidationEndpointExtensions
 {
     public static RouteHandlerBuilder WithRequestValidation<TRequest>(this RouteHandlerBuilder builder)
