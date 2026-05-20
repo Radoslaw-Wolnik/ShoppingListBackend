@@ -1,5 +1,6 @@
 using AutoMapper;
 using FluentAssertions;
+using Microsoft.Extensions.Logging.Abstractions;
 using ShoppingListBackend.Api.DTOs.Common;
 using ShoppingListBackend.Api.DTOs.Device;
 using ShoppingListBackend.Api.DTOs.ShoppingList;
@@ -18,7 +19,9 @@ public class MappingProfileTests
 
     public MappingProfileTests()
     {
-        var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
+        var config = new MapperConfiguration(
+            cfg => cfg.AddProfile<MappingProfile>(),
+            NullLoggerFactory.Instance);
         _mapper = config.CreateMapper();
     }
 
@@ -26,7 +29,9 @@ public class MappingProfileTests
     public void MappingProfile_Configuration_ShouldBeValid()
     {
         // Arrange & Act
-        var config = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>());
+        var config = new MapperConfiguration(
+            cfg => cfg.AddProfile<MappingProfile>(),
+            NullLoggerFactory.Instance);
 
         // Assert
         config.AssertConfigurationIsValid();

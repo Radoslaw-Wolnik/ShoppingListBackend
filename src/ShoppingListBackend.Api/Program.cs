@@ -6,6 +6,7 @@ using ShoppingListBackend.Api.Data;
 using ShoppingListBackend.Api.Endpoints;
 using ShoppingListBackend.Api.Extensions;
 using ShoppingListBackend.Api.Hubs;
+using ShoppingListBackend.Api.Mappers;
 using ShoppingListBackend.Api.Middleware;
 using ShoppingListBackend.Api.Repositories;
 using ShoppingListBackend.Api.Services;
@@ -27,7 +28,7 @@ builder.Services.AddRepositories();
 builder.Services.AddServices();
 
 // AutoMapper
-builder.Services.AddAutoMapper(typeof(Program));
+builder.Services.AddAutoMapper(cfg => cfg.AddProfile<MappingProfile>());
 
 // -------------------------------
 // 3. Authentication (API Key)

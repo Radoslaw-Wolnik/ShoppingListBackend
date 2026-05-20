@@ -1,5 +1,6 @@
 using AutoMapper;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using ShoppingListBackend.Api.DTOs.Common;
 using ShoppingListBackend.Api.DTOs.RealTime;
@@ -26,7 +27,9 @@ public abstract class ShoppingListServiceTestsBase : TestBase
         _hubContextMock = new Mock<IHubContext<ShoppingListHub>>();
         _clientsMock = new Mock<IHubClients>();
         _clientProxyMock = new Mock<IClientProxy>();
-        var mapper = new MapperConfiguration(cfg => cfg.AddProfile<MappingProfile>()).CreateMapper();
+        var mapper = new MapperConfiguration(
+            cfg => cfg.AddProfile<MappingProfile>(),
+            NullLoggerFactory.Instance).CreateMapper();
 
         _service = new ShoppingListService(
             _repoMock.Object,
