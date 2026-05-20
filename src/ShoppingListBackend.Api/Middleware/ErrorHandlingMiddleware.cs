@@ -9,13 +9,6 @@ public class ErrorHandlingMiddleware
 {
     private readonly RequestDelegate _next;
     private readonly ILogger<ErrorHandlingMiddleware> _logger;
-    private static readonly HashSet<Type> _handledExceptions = new()
-    {
-        typeof(ValidationException),
-        typeof(KeyNotFoundException),
-        typeof(UnauthorizedAccessException),
-        typeof(InvalidOperationException)
-    };
 
     public ErrorHandlingMiddleware(RequestDelegate next, ILogger<ErrorHandlingMiddleware> logger)
     {

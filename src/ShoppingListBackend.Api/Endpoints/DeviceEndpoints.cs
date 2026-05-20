@@ -33,15 +33,8 @@ public static class DeviceEndpoints
 
     private static async Task<IResult> RegisterDevice(IAuthService authService)
     {
-        try
-        {
-            var response = await authService.RegisterDeviceAsync();
-            return Results.Ok(response);
-        }
-        catch (Exception ex)
-        {
-            return Results.BadRequest(new { error = ex.Message });
-        }
+        var response = await authService.RegisterDeviceAsync();
+        return Results.Ok(response);
     }
 
     private static async Task<IResult> GetMyDevice(
